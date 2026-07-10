@@ -1,0 +1,56 @@
+name: pipeline-checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test-and-prove:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install pytest openpyxl
+
+      - name: Unit and pipeline tests
+        run: pytest tests -q
+
+      - name: Run the pipeline against the planted-trap fixture
+        run: |
+          CFG=skill/charity-donor-outreach/assets/campaign_config.example.json
+          python skill/charity-donor-outreach/scripts/validate_input.py \
+            --input skill/charity-donor-outreach/assets/sample_donors.csv --config $CFG
+          python skill/charity-donor-outreach/scripts/calculate_ask.py --config $CFG
+          python skill/charity-donor-outreach/scripts/generate_letters.py --config $CFG
+
+      - name: Prove the planted traps were caught
+        run: |
+          python - <<'EOF'
+          import csv, json, sys
+
+          expected = {"Ruth Andersen", "Ada Yamamoto-Pierce",
+                      "Shirley Magnusdottir", "Arthur Mwangi"}
+          with open("work/exceptions.csv", newline="", encoding="utf-8") as f:
+              caught = {row["donor_name"] for row in csv.DictReader(f)}
+          assert caught == expected, f"trap regression: {caught ^ expected}"
+
+          report = json.load(open("work/validation_report.json", encoding="utf-8"))
+          assert report["rows_in"] == 50 and report["rows_validated"] == 46
+
+          print("All planted traps caught. Guardrails intact.")
+          EOF
+
+      - name: Upload run evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-run-evidence
+          path: |
+            work/validation_report.json
+            work/exceptions.csv
+            output/manifest.csv
