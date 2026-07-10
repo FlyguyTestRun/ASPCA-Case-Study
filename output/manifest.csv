@@ -1,0 +1,47 @@
+donor_id,donor_name,tier,status,ask_amount,confidence,review_level,warnings,review_reasons,letter_file
+robert-svensson,Robert Svensson,Platinum,lapsed,,0.90,mandatory,file states active tier Platinum but donor is lapsed by date policy,"lapsed Platinum donor: no automated letter, route to personal outreach",
+earl-fontaine,Earl Fontaine,Platinum,active,43300,1.00,mandatory,,,letters/earl-fontaine.html
+walter-adeyemi,Walter Adeyemi,Platinum,lapsed,,0.90,mandatory,file states active tier Platinum but donor is lapsed by date policy,"lapsed Platinum donor: no automated letter, route to personal outreach",
+ralph-osei-bonsu,Ralph Osei-Bonsu,Platinum,active,42350,1.00,mandatory,,,letters/ralph-osei-bonsu.html
+victor-ambrosius,Victor Ambrosius,Platinum,active,26400,1.00,mandatory,,,letters/victor-ambrosius.html
+james-whitfield,James Whitfield,Gold,active,3700,1.00,none,,,letters/james-whitfield.html
+dorothy-callahan,Dorothy Callahan,Gold,active,1150,1.00,none,,,letters/dorothy-callahan.html
+deborah-sorenson,Deborah Sorenson,Gold,active,2100,1.00,none,,,letters/deborah-sorenson.html
+angela-petersen,Angela Petersen,Gold,active,1650,1.00,none,,,letters/angela-petersen.html
+grace-thornton,Grace Thornton,Gold,active,1300,1.00,none,,,letters/grace-thornton.html
+linda-petrov,Linda Petrov,Gold,active,4950,1.00,none,,,letters/linda-petrov.html
+helen-magnusson,Helen Magnusson,Gold,active,3600,1.00,none,,,letters/helen-magnusson.html
+maria-yamamoto,Maria Yamamoto,Gold,active,2700,1.00,none,,,letters/maria-yamamoto.html
+emma-bergstrom,Emma Bergstrom,Gold,active,2650,1.00,none,,,letters/emma-bergstrom.html
+nora-bergqvist,Nora Bergqvist,Gold,active,3900,1.00,none,,,letters/nora-bergqvist.html
+nancy-okafor,Nancy Okafor,Gold,active,2250,1.00,none,,,letters/nancy-okafor.html
+vera-johansson,Vera Johansson,Gold,active,2700,1.00,none,,,letters/vera-johansson.html
+margaret-alcott,Margaret Alcott,Silver,active,300,1.00,none,,,letters/margaret-alcott.html
+harold-mensah,Harold Mensah,Silver,active,400,1.00,none,,,letters/harold-mensah.html
+barbara-jensen,Barbara Jensen,Silver,active,400,1.00,none,,,letters/barbara-jensen.html
+betty-nakagawa,Betty Nakagawa,Silver,active,500,1.00,none,,,letters/betty-nakagawa.html
+claire-oduya,Claire Oduya,Silver,active,700,1.00,none,,,letters/claire-oduya.html
+janet-okonkwo,Janet Okonkwo,Silver,active,700,1.00,none,,,letters/janet-okonkwo.html
+owen-oduya,Owen Oduya,Silver,active,350,1.00,none,,,letters/owen-oduya.html
+susan-nakamura,Susan Nakamura,Silver,active,400,0.90,recommended,"gift recorded in the as_of year 2024, confirm the as_of_date is intended (loyalty logic counts only the prior full year)",,letters/susan-nakamura.html
+joe-iwamoto,Joe Iwamoto,Silver,active,400,1.00,none,,,letters/joe-iwamoto.html
+michael-torres,Michael Torres,Silver,lapsed,50,1.00,none,,,letters/michael-torres.html
+charles-kimura,Charles Kimura,Silver,lapsed,50,1.00,none,,,letters/charles-kimura.html
+paul-achebe,Paul Achebe,Bronze,lapsed,50,1.00,none,,,letters/paul-achebe.html
+frank-watanabe,Frank Watanabe,Silver,lapsed,50,1.00,none,,,letters/frank-watanabe.html
+lars-achebe-nielsen,Lars Achebe-Nielsen,Silver,lapsed,50,1.00,none,,,letters/lars-achebe-nielsen.html
+thomas-bergmann,Thomas Bergmann,Bronze,lapsed,50,1.00,none,,,letters/thomas-bergmann.html
+frank-dimitriou,Frank Dimitriou,Bronze,lapsed,50,1.00,none,,,letters/frank-dimitriou.html
+raymond-volkov,Raymond Volkov,Bronze,lapsed,50,1.00,none,,,letters/raymond-volkov.html
+henry-obi,Henry Obi,Bronze,lapsed,50,1.00,none,,,letters/henry-obi.html
+felix-mensah-bonsu,Felix Mensah-Bonsu,Bronze,lapsed,50,1.00,none,,,letters/felix-mensah-bonsu.html
+patricia-huang,Patricia Huang,Bronze,active,200,1.00,none,,,letters/patricia-huang.html
+brenda-kowalski,Brenda Kowalski,Bronze,active,200,1.00,none,,,letters/brenda-kowalski.html
+carol-eriksson,Carol Eriksson,Bronze,active,200,1.00,none,,,letters/carol-eriksson.html
+kathy-lindberg,Kathy Lindberg,Bronze,active,200,1.00,none,,,letters/kathy-lindberg.html
+iris-kowalczyk,Iris Kowalczyk,Bronze,active,200,1.00,none,,,letters/iris-kowalczyk.html
+david-osei,David Osei,Bronze,active,200,1.00,none,,,letters/david-osei.html
+george-nwosu,George Nwosu,Bronze,active,200,1.00,none,,,letters/george-nwosu.html
+samuel-lindqvist,Samuel Lindqvist,Bronze,active,200,1.00,none,,,letters/samuel-lindqvist.html
+jack-nkemdirim,Jack Nkemdirim,Bronze,active,200,1.00,none,,,letters/jack-nkemdirim.html
+igor-volkov,Igor Volkov,Bronze,active,200,1.00,none,,,letters/igor-volkov.html
