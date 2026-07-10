@@ -46,8 +46,21 @@ specific reason.
 
 Before generating anything, show the user the validation summary: how many
 rows passed, and the full contents of the exceptions report with reasons.
-Exceptions are excluded from generation until the data is fixed at the
-source; make that clear. Do not proceed if the user has not seen this.
+Exceptions are excluded from generation until a person resolves them; make
+that clear. Do not proceed if the user has not seen this.
+
+Where the correct value is computable, `work/corrections.csv` holds a
+suggested fix per problem. If the user approves specific fixes, apply them
+with:
+
+```
+python scripts/apply_corrections.py --input <donor_file> \
+  --corrections work/corrections.csv --output corrected.csv [--rows 5,12]
+```
+
+then restart from step 1 with the corrected file. Never apply corrections
+the user has not approved, and remind them to make the same fix in the
+source system.
 
 ### Step 3: Calculate asks
 
@@ -70,6 +83,9 @@ python scripts/generate_letters.py --config <campaign.json>
 Writes one HTML letter per eligible donor to `output/letters/` and a review
 manifest to `output/manifest.csv`. Lapsed Gold and Platinum donors get no
 automated letter; they appear in the manifest routed to personal outreach.
+If an approved style profile exists (`feedback/style_profile.json`, managed
+by `scripts/learn_style.py`), its closing phrase and P.S. line are applied;
+the profile is sanitized on every run and can never alter facts or amounts.
 
 ### Step 5: Optional bounded personalization
 

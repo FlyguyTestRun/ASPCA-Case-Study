@@ -6,6 +6,7 @@ Usage:
 Outputs (in the work directory):
     validated.csv         rows that passed validation, with computed tier and status
     exceptions.csv        rows that failed, each with specific reasons; no guessing
+    corrections.csv       suggested fixes a human can approve and resubmit
     validation_report.json  run summary for dashboards and CI
 
 Exit codes: 0 = ran to completion (exceptions may exist), 2 = bad config or unreadable input.
@@ -86,10 +87,13 @@ def load_rows(path: Path) -> list[dict]:
         return [row for row in reader if any((v or "").strip() for v in row.values())]
 
 
-def validate_rows(raw_rows: list[dict], config: dict) -> tuple[list[dict], list[dict]]:
+def validate_rows(
+    raw_rows: list[dict], config: dict
+) -> tuple[list[dict], list[dict], list[dict]]:
     as_of_year = config["_as_of"].year
     validated: list[dict] = []
     exceptions: list[dict] = []
+    corrections: list[dict] = []
 
     name_counts = Counter(
         (row.get("donor_name") or "").strip().lower() for row in raw_rows
@@ -98,7 +102,19 @@ def validate_rows(raw_rows: list[dict], config: dict) -> tuple[list[dict], list[
     for index, row in enumerate(raw_rows, start=2):  # row 1 is the header
         errors: list[str] = []
         warnings: list[str] = []
+        row_fixes: list[dict] = []
         name = (row.get("donor_name") or "").strip()
+
+        def suggest(field: str, current, value, reason: str) -> None:
+            """Record a correction a human can approve; never applied silently."""
+            row_fixes.append({
+                "row_number": index,
+                "donor_name": name or "(missing)",
+                "field": field,
+                "current_value": "" if current is None else str(current),
+                "suggested_value": str(value),
+                "reason": reason,
+            })
 
         if not name:
             errors.append("donor_name is missing")
@@ -142,6 +158,8 @@ def validate_rows(raw_rows: list[dict], config: dict) -> tuple[list[dict], list[
                     errors.append(
                         f"{column} mismatch: file says {stated:,.0f}, gifts say {computed:,.0f}"
                     )
+                    suggest(column, row.get(column), f"{computed:g}",
+                            "recomputed from the gift history, which is the source of truth")
 
         stated_tier = (row.get("tier") or "").strip().title()
         if stated_tier not in VALID_TIER_LABELS:
@@ -168,23 +186,32 @@ def validate_rows(raw_rows: list[dict], config: dict) -> tuple[list[dict], list[
                     f"file says Lapsed but last gift was {computed_last_year}, "
                     f"within {rules.LAPSED_AFTER_YEARS} years of as_of {as_of_year}"
                 )
+                suggest("tier", row.get("tier"), computed_tier,
+                        "donor is active by date policy; tier recomputed from lifetime giving")
             elif stated_tier in rules.FINANCIAL_TIERS and stated_tier != computed_tier:
                 errors.append(
                     f"tier mismatch: file says {stated_tier}, lifetime giving of "
                     f"${computed_lifetime:,.0f} computes to {computed_tier}"
                 )
+                suggest("tier", row.get("tier"), computed_tier,
+                        f"lifetime giving of ${computed_lifetime:,.0f} places this donor in {computed_tier}")
             elif stated_tier in rules.FINANCIAL_TIERS and lapsed:
                 warnings.append(
                     f"file states active tier {stated_tier} but donor is lapsed by date policy"
                 )
 
         if errors:
+            suggestion_text = "; ".join(
+                f"set {fix['field']} to {fix['suggested_value']}" for fix in row_fixes
+            )
             exceptions.append({
                 "row_number": index,
                 "donor_name": name or "(missing)",
                 "errors": "; ".join(errors),
-                "disposition": "excluded from letter generation, requires data steward review",
+                "suggested_correction": suggestion_text or "resolve in the source system",
+                "disposition": "excluded from letter generation until a person approves a fix",
             })
+            corrections.extend(row_fixes)
             continue
 
         first_name, last_name = rules.split_name(name)
@@ -207,7 +234,7 @@ def validate_rows(raw_rows: list[dict], config: dict) -> tuple[list[dict], list[
             "warnings": " | ".join(warnings),
         })
 
-    return validated, exceptions
+    return validated, exceptions, corrections
 
 
 def write_csv(path: Path, rows: list[dict], fieldnames: list[str]) -> None:
@@ -231,7 +258,7 @@ def run(input_path: Path, config_path: Path, workdir: Path) -> dict:
         print(f"INPUT ERROR: {exc}", file=sys.stderr)
         raise SystemExit(2)
 
-    validated, exceptions = validate_rows(raw_rows, config)
+    validated, exceptions, corrections = validate_rows(raw_rows, config)
 
     validated_fields = [
         "donor_id", "donor_name", "title", "first_name", "last_name",
@@ -241,7 +268,11 @@ def run(input_path: Path, config_path: Path, workdir: Path) -> dict:
     write_csv(workdir / "validated.csv", validated, validated_fields)
     write_csv(
         workdir / "exceptions.csv", exceptions,
-        ["row_number", "donor_name", "errors", "disposition"],
+        ["row_number", "donor_name", "errors", "suggested_correction", "disposition"],
+    )
+    write_csv(
+        workdir / "corrections.csv", corrections,
+        ["row_number", "donor_name", "field", "current_value", "suggested_value", "reason"],
     )
 
     warning_rows = [row for row in validated if row["warnings"]]
@@ -254,6 +285,7 @@ def run(input_path: Path, config_path: Path, workdir: Path) -> dict:
         "rows_validated": len(validated),
         "rows_excepted": len(exceptions),
         "rows_with_warnings": len(warning_rows),
+        "suggested_corrections": len(corrections),
         "exceptions": [
             {"donor_name": e["donor_name"], "errors": e["errors"]} for e in exceptions
         ],
@@ -270,6 +302,7 @@ def run(input_path: Path, config_path: Path, workdir: Path) -> dict:
     print(f"validated:          {report['rows_validated']}")
     print(f"exceptions:         {report['rows_excepted']}")
     print(f"with warnings:      {report['rows_with_warnings']}")
+    print(f"suggested fixes:    {report['suggested_corrections']} (work/corrections.csv, approve then resubmit)")
     for entry in report["exceptions"]:
         print(f"  EXCEPTION  {entry['donor_name']}: {entry['errors']}")
     for entry in report["warnings"]:

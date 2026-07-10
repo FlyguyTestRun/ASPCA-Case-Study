@@ -20,7 +20,9 @@ The original skill's own 50-donor table, transcribed verbatim into [a test fixtu
 | Gender guessed from first names | Instructed | Removed, tested for |
 | Missing data | "Make reasonable assumptions and proceed" | Routed to an exceptions report, never fabricated |
 | Output | HTML pasted into chat | Files, review manifest, human gates |
-| Tests | None | 46, run on every change by [CI](.github/workflows/ci.yml) |
+| Found errors | Dead end | Suggested fixes a person approves, then one-click resubmit |
+| Reviewer edits | Lost | Learned as style, after repeated evidence and named approval, personality only |
+| Tests | None | 61, run on every change by [CI](.github/workflows/ci.yml) |
 
 The donor whom manual review missed: Shirley Magnusdottir, filed as Silver with $22,000 lifetime giving, which the policy computes to Gold. Three other traps (Ruth Andersen, Ada Yamamoto-Pierce, Arthur Mwangi) were caught by both methods. That gap between careful reading and computed verification is the case for this architecture in miniature.
 
@@ -88,10 +90,16 @@ python skill/charity-donor-outreach/scripts/calculate_ask.py \
 python skill/charity-donor-outreach/scripts/generate_letters.py \
   --config skill/charity-donor-outreach/assets/campaign_config.example.json
 
+# Approve the suggested fixes and resubmit: exceptions drop from 4 to 0
+python skill/charity-donor-outreach/scripts/apply_corrections.py \
+  --input skill/charity-donor-outreach/assets/sample_donors.csv \
+  --corrections work/corrections.csv --output work/donors_corrected.csv
+
 # Run the test suite
 python -m pytest tests -q
 
 # Launch the review interface for non-technical staff
+# (tutorial mode and an audio walkthrough are toggles in the sidebar)
 streamlit run app/review_app.py
 ```
 
@@ -116,6 +124,11 @@ Every correction has an Architecture Decision Record: the problem, the decision,
 | 11 | No quality signal on outputs | [ADR 0011: confidence scoring as the feedback loop](docs/adr/0011-confidence-scoring-feedback-loop.md) |
 | 12 | No path for non-technical staff to run or review safely | [ADR 0012: operator interface](docs/adr/0012-operator-interface.md) |
 | 13 | Nothing preventing guardrails from silently regressing | [ADR 0013: CI runs the traps on every change](docs/adr/0013-ci-regression-gate.md) |
+| 14 | No path from a found error to a fixed record | [ADR 0014: suggested corrections, human-approved resubmit](docs/adr/0014-suggested-corrections-resubmit-loop.md) |
+| 15 | Reviewer edits taught the system nothing | [ADR 0015: style learning within guardrails](docs/adr/0015-style-learning-within-guardrails.md) |
+| 16 | Cost grows with every donor, on every run | [ADR 0016: token and process economy](docs/adr/0016-token-and-process-economy.md) |
+
+Every planted trap in the case-study data is cataloged in the [trap registry](docs/trap-registry.md): where it hides, how it is caught, the test that proves it, and the decision record behind the fix.
 
 ## Repository map
 
@@ -127,11 +140,16 @@ ASPCA-Case-Study/
 │   ├── SKILL.md                  lean instructions: judgment only, no math, no guessing
 │   ├── references/               policy.md and input_schema.md (single sources of truth)
 │   ├── scripts/                  donor_rules.py + validate / calculate / generate
+│   │                             + apply_corrections (fix-and-resubmit)
+│   │                             + learn_style (guarded preference learning)
 │   └── assets/                   fixture data, config example, letter template
 ├── app/review_app.py             upload-and-review interface for fundraising staff
-├── tests/                        46 tests, including the planted-trap regression
+│                                 (tutorial mode, audio walkthrough, fix-and-resubmit,
+│                                 style feedback, all as sidebar toggles and tabs)
+├── tests/                        61 tests, including the planted-trap regression
 ├── output/                       committed evidence of a full run
 ├── docs/adr/                     one decision record per correction
+├── docs/trap-registry.md         every planted trap: hiding place, catch, proof
 ├── .github/workflows/ci.yml      tests + trap regression + run artifacts on every push
 └── HOURS.md                      time log for this engagement
 ```

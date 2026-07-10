@@ -132,8 +132,12 @@ def build_ask_paragraph(donor: dict, config: dict) -> str:
     return text
 
 
-def render_letter(donor: dict, config: dict, template: str) -> str:
+def render_letter(donor: dict, config: dict, template: str, style: dict) -> str:
     letter_date = date.fromisoformat(config["as_of_date"])
+    closing = style.get("closing_phrase", rules.DEFAULT_CLOSING)
+    ps_block = ""
+    if style.get("ps_line"):
+        ps_block = f"<p>P.S. {html.escape(style['ps_line'])}</p>"
     fields = {
         "DATE": f"{letter_date:%B} {letter_date.day}, {letter_date.year}",
         "SALUTATION": html.escape(build_salutation(donor)),
@@ -144,6 +148,8 @@ def render_letter(donor: dict, config: dict, template: str) -> str:
         "SIGNER_NAME": html.escape(config["signer_name"]),
         "SIGNER_TITLE": html.escape(config["signer_title"]),
         "CHARITY_NAME": html.escape(config["charity_name"]),
+        "CLOSING_PHRASE": html.escape(closing),
+        "PS_BLOCK": ps_block,
     }
     rendered = template
     for key, value in fields.items():
@@ -151,9 +157,22 @@ def render_letter(donor: dict, config: dict, template: str) -> str:
     return rendered
 
 
-def run(config_path: Path, workdir: Path, outdir: Path, template_path: Path) -> list[dict]:
+def load_style(style_path: Path | None) -> dict:
+    """Load and sanitize an approved style profile; absent means defaults."""
+    if style_path is None or not style_path.exists():
+        return {}
+    profile = json.loads(style_path.read_text(encoding="utf-8"))
+    clean, ignored = rules.sanitize_style_profile(profile)
+    for reason in ignored:
+        print(f"STYLE GUARDRAIL: {reason}", file=sys.stderr)
+    return clean
+
+
+def run(config_path: Path, workdir: Path, outdir: Path, template_path: Path,
+        style_path: Path | None = None) -> list[dict]:
     config = json.loads(config_path.read_text(encoding="utf-8"))
     template = template_path.read_text(encoding="utf-8")
+    style = load_style(style_path)
 
     computed_path = workdir / "computed.csv"
     if not computed_path.exists():
@@ -182,7 +201,7 @@ def run(config_path: Path, workdir: Path, outdir: Path, template_path: Path) -> 
         }
         if donor["ask_amount"]:
             letter_path = letters_dir / f"{donor['donor_id']}.html"
-            letter_path.write_text(render_letter(donor, config, template), encoding="utf-8")
+            letter_path.write_text(render_letter(donor, config, template, style), encoding="utf-8")
             entry["letter_file"] = f"letters/{donor['donor_id']}.html"
         manifest.append(entry)
 
@@ -211,8 +230,12 @@ def main() -> None:
         default=Path(__file__).resolve().parent.parent / "assets" / "template.html",
         type=Path,
     )
+    parser.add_argument(
+        "--style", default=Path("feedback/style_profile.json"), type=Path,
+        help="approved style profile; missing file means house defaults",
+    )
     args = parser.parse_args()
-    run(args.config, args.workdir, args.outdir, args.template)
+    run(args.config, args.workdir, args.outdir, args.template, args.style)
 
 
 if __name__ == "__main__":

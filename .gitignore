@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 work/
+feedback/
 .venv/
 venv/
 .DS_Store

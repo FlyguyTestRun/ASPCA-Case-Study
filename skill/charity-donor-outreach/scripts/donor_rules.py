@@ -188,6 +188,59 @@ def review_level(tier: str, confidence: float, review_reasons) -> str:
     return "none"
 
 
+# Style feedback guardrails. A style profile may only adjust approved,
+# personality-level knobs, and every value must pass these checks at both
+# learning time and generation time. Style can never change facts, numbers,
+# claims, or urgency.
+STYLE_BANNED_WORDS = {
+    "match", "matched", "matching", "double", "doubled", "guarantee",
+    "guaranteed", "urgent", "urgently", "deadline", "wire", "cash",
+}
+STYLE_CLOSING_MAX_WORDS = 6
+STYLE_PS_MAX_CHARS = 160
+DEFAULT_CLOSING = "With gratitude"
+STYLE_MIN_EVIDENCE = 3  # identical edits required before a change is even suggested
+
+
+def _style_text_ok(text: str, max_words: int | None = None,
+                   max_chars: int | None = None) -> bool:
+    if any(ch.isdigit() for ch in text) or "$" in text or "<" in text:
+        return False
+    if max_words is not None and len(text.split()) > max_words:
+        return False
+    if max_chars is not None and len(text) > max_chars:
+        return False
+    words = set(re.findall(r"[a-z']+", text.lower()))
+    return not (words & STYLE_BANNED_WORDS)
+
+
+def sanitize_style_profile(profile: dict) -> tuple[dict, list[str]]:
+    """Return only the approved style knobs whose values pass the guardrails.
+
+    Unknown keys are dropped, so a style profile cannot smuggle changes to
+    asks, claims, or any other part of a letter.
+    """
+    clean: dict = {}
+    ignored: list[str] = []
+    closing = str(profile.get("closing_phrase") or "").strip().rstrip(",")
+    if closing:
+        if _style_text_ok(closing, max_words=STYLE_CLOSING_MAX_WORDS):
+            clean["closing_phrase"] = closing
+        else:
+            ignored.append(f"closing_phrase {closing!r} rejected by style guardrails")
+    ps_line = str(profile.get("ps_line") or "").strip()
+    if ps_line:
+        if _style_text_ok(ps_line, max_chars=STYLE_PS_MAX_CHARS):
+            clean["ps_line"] = ps_line
+        else:
+            ignored.append("ps_line rejected by style guardrails")
+    for key in profile:
+        if key not in ("closing_phrase", "ps_line", "approved_by", "approved_on",
+                       "evidence_edits"):
+            ignored.append(f"unknown style key {key!r} ignored")
+    return clean, ignored
+
+
 def slugify(name: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
     return slug or "donor"
