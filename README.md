@@ -1,4 +1,4 @@
-# Charity Donor Outreach, Rebuilt
+﻿# Charity Donor Outreach, Rebuilt
 
 A case study in turning a plausible-looking AI prompt into a governed, testable system.
 
@@ -27,7 +27,7 @@ The original skill's own 50-donor table, transcribed verbatim into [a test fixtu
 | Uncertain records | Indistinguishable from clean ones | Confidence rubric: below 0.70 blocked, below 0.90 held and escalated |
 | Letters | Free-form HTML in chat | Validated against a [schema](skill/charity-donor-outreach/references/letter_schema.json) as data, then rendered to files with a review manifest |
 | Hostile input | Trusted | CSV formula injection neutralized, uploads capped, donor text is data, never instructions |
-| Tests | None | **81**, re-run with the planted traps by [CI](.github/workflows/ci.yml) on every change |
+| Tests | None | **86**, re-run with the planted traps by [CI](.github/workflows/ci.yml) on every change |
 
 Full analysis: the [design review](docs/design-review/README.md) examines the original problem by problem with validity verdicts, and the [trap registry](docs/trap-registry.md) maps every planted defect to the mechanism that catches it and the test that proves it.
 

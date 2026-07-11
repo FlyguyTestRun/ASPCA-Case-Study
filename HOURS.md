@@ -11,6 +11,8 @@ Time is logged per work block. All times US Central.
 
 | 2026-07-11 | 10:30 | 12:15 | 1.75 | Design review of the original skill validity-checked, professionalized, and moved into docs/design-review (7 themed files plus index). Four gaps from the review implemented: letter schema validation before render, full fail/report/pass confidence rubric with webhook-ready escalation events, CSV formula-injection defenses with upload caps, per-stage run metrics. New docs: components guide, scale-architecture trigger table. ADRs 0017 and 0018 added, 0011 revised. README rewritten concise with TOC. Test suite grown to 81; pipeline, app, and resubmit loop re-verified in browser; run log clean. |
 
+| 2026-07-11 | 12:30 | 13:00 | 0.5 | Data provenance audit. Confirmed the original zip contained only SKILL.md plus a macOS .DS_Store artifact (no data), so the embedded 50-donor table is the sole data source. Added a fixture-fidelity test suite (5 tests): parses the original markdown table and proves the fixture matches it field by field, planted errors preserved, and independently audits that the original's arithmetic columns tie out. Suite at 86. Machine learning scoped honestly into the scale-architecture trigger table (confidence recalibration, donor analytics). |
+
 Remaining before submission: assessment docx export, letter-quality pass on generated letters, final proofread, email draft to Doug, push to GitHub after validation sign-off.
 
-**Total: 7.0**
+**Total: 7.5**
