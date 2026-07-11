@@ -87,6 +87,7 @@ def run_pipeline(donor_bytes: bytes, donor_suffix: str, config: dict) -> dict:
         return {
             "ok": True,
             "logs": "\n".join(logs),
+            "metrics": json.loads((workdir / "run_metrics.json").read_text(encoding="utf-8")),
             "report": json.loads((workdir / "validation_report.json").read_text(encoding="utf-8")),
             "validated": pd.read_csv(workdir / "validated.csv", dtype=str).fillna(""),
             "exceptions": pd.read_csv(workdir / "exceptions.csv", dtype=str).fillna(""),
@@ -252,7 +253,7 @@ with upload_col:
     uploaded = st.file_uploader("Donor file (CSV or Excel)", type=["csv", "xlsx", "xls"])
 with sample_col:
     st.write("")
-    use_sample = st.button("Try the sample file", use_container_width=True)
+    use_sample = st.button("Try the sample file", width="stretch")
 
 
 def start_run(data: bytes, suffix: str, label: str) -> None:
@@ -262,10 +263,19 @@ def start_run(data: bytes, suffix: str, label: str) -> None:
     st.session_state["result"] = run_pipeline(data, suffix, config)
 
 
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+
 if use_sample:
     start_run(FIXTURE.read_bytes(), ".csv", FIXTURE.name)
-elif uploaded is not None and st.button("Run checks", type="primary"):
-    start_run(uploaded.getvalue(), Path(uploaded.name).suffix.lower() or ".csv", uploaded.name)
+elif uploaded is not None:
+    if len(uploaded.getvalue()) > MAX_UPLOAD_BYTES:
+        st.error(
+            "That file is larger than 5 MB. Donor exports this size should go "
+            "through the batch pipeline directly rather than the browser; ask "
+            "a technical colleague to run the validate script on it."
+        )
+    elif st.button("Run checks", type="primary"):
+        start_run(uploaded.getvalue(), Path(uploaded.name).suffix.lower() or ".csv", uploaded.name)
 
 result = st.session_state.get("result")
 if result is None:
@@ -305,7 +315,7 @@ with tab_problems:
             f"{len(exceptions)} donor record(s) were held back. No letters were "
             "created for them."
         )
-        st.dataframe(exceptions, use_container_width=True, hide_index=True)
+        st.dataframe(exceptions, width="stretch", hide_index=True)
     else:
         st.success("No records were held back. Every row passed validation.")
     warned = manifest[manifest["warnings"] != ""]
@@ -316,7 +326,7 @@ with tab_problems:
         )
         st.dataframe(
             warned[["donor_name", "tier", "status", "confidence", "warnings"]],
-            use_container_width=True, hide_index=True,
+            width="stretch", hide_index=True,
         )
 
 with tab_fixes:
@@ -332,7 +342,7 @@ with tab_fixes:
         editable = corrections.copy()
         editable.insert(0, "approve", True)
         edited = st.data_editor(
-            editable, use_container_width=True, hide_index=True,
+            editable, width="stretch", hide_index=True,
             disabled=[c for c in editable.columns if c != "approve"],
             column_config={"approve": st.column_config.CheckboxColumn("Approve")},
         )
@@ -359,7 +369,7 @@ with tab_fixes:
                 st.download_button(
                     "Download corrected file for your source system",
                     corrected_preview, file_name="donors_corrected.csv",
-                    use_container_width=True,
+                    width="stretch",
                 )
 
 with tab_review:
@@ -374,7 +384,7 @@ with tab_review:
     st.dataframe(
         queue[["donor_name", "tier", "status", "ask_amount", "confidence",
                "review_level", "review_reasons", "warnings"]],
-        use_container_width=True, hide_index=True,
+        width="stretch", hide_index=True,
     )
 
 with tab_asks:
@@ -386,7 +396,7 @@ with tab_asks:
     st.dataframe(
         result["computed"][["donor_name", "tier", "status", "largest_gift",
                             "lifetime_total", "ask_amount", "ask_trace"]],
-        use_container_width=True, hide_index=True,
+        width="stretch", hide_index=True,
     )
 
 with tab_letters:
@@ -404,7 +414,11 @@ with tab_letters:
             f"{row['confidence']}, review: {row['review_level']}"
         )
         file_name = Path(row["letter_file"]).name
-        st.components.v1.html(letters[file_name], height=520, scrolling=True)
+        preview_dir = Path(tempfile.gettempdir()) / "donor_review_previews"
+        preview_dir.mkdir(parents=True, exist_ok=True)
+        preview_path = preview_dir / file_name
+        preview_path.write_text(letters[file_name], encoding="utf-8")
+        st.iframe(preview_path, height=520)
     else:
         st.info("No letters were generated on this run.")
 
@@ -458,25 +472,35 @@ with tab_style:
 
 with tab_log:
     tip(
-        "The raw output of each pipeline step, exactly as it would appear if "
-        "run from the command line. Useful when asking a technical colleague "
-        "for help."
+        "Run metrics show how long each stage took and what it produced; the "
+        "raw log below is exactly what the command line would show. Useful "
+        "when asking a technical colleague for help."
     )
+    metrics = result.get("metrics", {})
+    stage_rows = [
+        {"stage": stage, **values}
+        for stage, values in metrics.items()
+        if isinstance(values, dict)
+    ]
+    if stage_rows:
+        st.dataframe(pd.DataFrame(stage_rows).fillna(""), width="stretch", hide_index=True)
+        if isinstance(metrics.get("token_cost"), str):
+            st.caption(f"Token cost: {metrics['token_cost']}.")
     st.code(result["logs"])
 
 st.divider()
 d1, d2, d3 = st.columns(3)
 d1.download_button(
     "Download review manifest (CSV)", manifest.to_csv(index=False),
-    file_name="manifest.csv", use_container_width=True,
+    file_name="manifest.csv", width="stretch",
 )
 d2.download_button(
     "Download data problems (CSV)", exceptions.to_csv(index=False),
-    file_name="exceptions.csv", use_container_width=True,
+    file_name="exceptions.csv", width="stretch",
 )
 d3.download_button(
     "Download letters + manifest (ZIP)", letters_zip(letters, manifest),
-    file_name="letters_for_review.zip", use_container_width=True,
+    file_name="letters_for_review.zip", width="stretch",
 )
 st.caption(
     "Letters are drafts for human review. This tool never sends email and "

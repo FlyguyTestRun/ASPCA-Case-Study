@@ -18,6 +18,7 @@ import csv
 import html
 import json
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
@@ -132,23 +133,43 @@ def build_ask_paragraph(donor: dict, config: dict) -> str:
     return text
 
 
-def render_letter(donor: dict, config: dict, template: str, style: dict) -> str:
+def build_letter_model(donor: dict, config: dict, style: dict) -> dict:
+    """Assemble the structured letter model. Validated against
+    references/letter_schema.json before anything is rendered."""
     letter_date = date.fromisoformat(config["as_of_date"])
-    closing = style.get("closing_phrase", rules.DEFAULT_CLOSING)
+    return {
+        "donor_id": donor["donor_id"],
+        "letter_date": f"{letter_date:%B} {letter_date.day}, {letter_date.year}",
+        "salutation": build_salutation(donor),
+        "opening_paragraph": build_opening(donor, config["charity_name"]),
+        "campaign_paragraph": build_campaign_paragraph(donor, config),
+        "ask_paragraph": build_ask_paragraph(donor, config),
+        "closing_phrase": style.get("closing_phrase", rules.DEFAULT_CLOSING),
+        "ps_line": style.get("ps_line", ""),
+        "signer_name": config["signer_name"],
+        "signer_title": config["signer_title"],
+        "charity_name": config["charity_name"],
+        "donation_url": config["donation_url"],
+    }
+
+
+def render_letter(model: dict, template: str) -> str:
+    """Turn a schema-valid letter model into HTML. Rendering is the last step
+    and does no thinking of its own."""
     ps_block = ""
-    if style.get("ps_line"):
-        ps_block = f"<p>P.S. {html.escape(style['ps_line'])}</p>"
+    if model["ps_line"]:
+        ps_block = f"<p>P.S. {html.escape(model['ps_line'])}</p>"
     fields = {
-        "DATE": f"{letter_date:%B} {letter_date.day}, {letter_date.year}",
-        "SALUTATION": html.escape(build_salutation(donor)),
-        "OPENING_PARAGRAPH": html.escape(build_opening(donor, config["charity_name"])),
-        "CAMPAIGN_PARAGRAPH": html.escape(build_campaign_paragraph(donor, config)),
-        "ASK_PARAGRAPH": html.escape(build_ask_paragraph(donor, config)),
-        "DONATION_URL": html.escape(config["donation_url"], quote=True),
-        "SIGNER_NAME": html.escape(config["signer_name"]),
-        "SIGNER_TITLE": html.escape(config["signer_title"]),
-        "CHARITY_NAME": html.escape(config["charity_name"]),
-        "CLOSING_PHRASE": html.escape(closing),
+        "DATE": model["letter_date"],
+        "SALUTATION": html.escape(model["salutation"]),
+        "OPENING_PARAGRAPH": html.escape(model["opening_paragraph"]),
+        "CAMPAIGN_PARAGRAPH": html.escape(model["campaign_paragraph"]),
+        "ASK_PARAGRAPH": html.escape(model["ask_paragraph"]),
+        "DONATION_URL": html.escape(model["donation_url"], quote=True),
+        "SIGNER_NAME": html.escape(model["signer_name"]),
+        "SIGNER_TITLE": html.escape(model["signer_title"]),
+        "CHARITY_NAME": html.escape(model["charity_name"]),
+        "CLOSING_PHRASE": html.escape(model["closing_phrase"]),
         "PS_BLOCK": ps_block,
     }
     rendered = template
@@ -170,9 +191,14 @@ def load_style(style_path: Path | None) -> dict:
 
 def run(config_path: Path, workdir: Path, outdir: Path, template_path: Path,
         style_path: Path | None = None) -> list[dict]:
+    started = time.perf_counter()
     config = json.loads(config_path.read_text(encoding="utf-8"))
     template = template_path.read_text(encoding="utf-8")
     style = load_style(style_path)
+    schema = json.loads(
+        (Path(__file__).resolve().parent.parent / "references" / "letter_schema.json")
+        .read_text(encoding="utf-8")
+    )
 
     computed_path = workdir / "computed.csv"
     if not computed_path.exists():
@@ -186,33 +212,53 @@ def run(config_path: Path, workdir: Path, outdir: Path, template_path: Path,
     letters_dir.mkdir(parents=True, exist_ok=True)
 
     manifest: list[dict] = []
-    for donor in donors:
-        entry = {
-            "donor_id": donor["donor_id"],
-            "donor_name": donor["donor_name"],
-            "tier": donor["tier"],
-            "status": donor["status"],
-            "ask_amount": donor["ask_amount"],
-            "confidence": donor["confidence"],
-            "review_level": donor["review_level"],
-            "warnings": donor["warnings"],
-            "review_reasons": donor["review_reasons"],
-            "letter_file": "",
-        }
-        if donor["ask_amount"]:
-            letter_path = letters_dir / f"{donor['donor_id']}.html"
-            letter_path.write_text(render_letter(donor, config, template, style), encoding="utf-8")
-            entry["letter_file"] = f"letters/{donor['donor_id']}.html"
-        manifest.append(entry)
+    schema_rejections = 0
+    models_path = workdir / "letter_models.jsonl"
+    with models_path.open("w", encoding="utf-8") as models_out:
+        for donor in donors:
+            entry = {
+                "donor_id": donor["donor_id"],
+                "donor_name": donor["donor_name"],
+                "tier": donor["tier"],
+                "status": donor["status"],
+                "ask_amount": donor["ask_amount"],
+                "confidence": donor["confidence"],
+                "confidence_band": donor.get("confidence_band", ""),
+                "review_level": donor["review_level"],
+                "warnings": donor["warnings"],
+                "review_reasons": donor["review_reasons"],
+                "letter_file": "",
+            }
+            if donor["ask_amount"]:
+                model = build_letter_model(donor, config, style)
+                errors = rules.validate_letter_model(model, schema)
+                if errors:
+                    schema_rejections += 1
+                    entry["review_level"] = "mandatory"
+                    reasons = [donor["review_reasons"]] if donor["review_reasons"] else []
+                    reasons.append(f"letter failed schema validation: {'; '.join(errors)}")
+                    entry["review_reasons"] = " | ".join(reasons)
+                else:
+                    models_out.write(json.dumps(model) + "\n")
+                    letter_path = letters_dir / f"{donor['donor_id']}.html"
+                    letter_path.write_text(render_letter(model, template), encoding="utf-8")
+                    entry["letter_file"] = f"letters/{donor['donor_id']}.html"
+            manifest.append(entry)
 
     manifest_path = outdir / "manifest.csv"
     with manifest_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(manifest[0].keys()) if manifest else [])
         writer.writeheader()
-        writer.writerows(manifest)
+        writer.writerows(rules.csv_safe_row(entry) for entry in manifest)
 
     letters = sum(1 for entry in manifest if entry["letter_file"])
+    rules.record_stage_metrics(workdir, "generate", (time.perf_counter() - started) * 1000, {
+        "letters_written": letters,
+        "manifest_rows": len(manifest),
+        "schema_rejections": schema_rejections,
+    })
     print(f"letters written:    {letters}")
+    print(f"schema rejections:  {schema_rejections}")
     print(f"manifest rows:      {len(manifest)}")
     print(f"manifest:           {manifest_path}")
     print("Reminder: nothing is sent automatically. Review the manifest, then")

@@ -135,6 +135,59 @@ def test_every_generated_ask_traces_to_policy(pipeline):
             assert int(row["ask_amount"]) % 50 == 0
 
 
+def test_escalation_events_cover_every_held_record(pipeline):
+    lines = (pipeline["workdir"] / "escalations.jsonl").read_text(encoding="utf-8")
+    events = [json.loads(line) for line in lines.splitlines() if line]
+    manifest = read_csv(pipeline["outdir"] / "manifest.csv")
+    held = [row for row in manifest if row["review_level"] != "none"]
+    assert len(events) == len(held)
+    by_id = {event["donor_id"]: event for event in events}
+    # Susan carries the reference-date warning and must be escalated.
+    assert by_id["susan-nakamura"]["review_level"] == "recommended"
+    # Every Platinum letter escalates as mandatory.
+    for event in events:
+        if event["tier"] == "Platinum":
+            assert event["review_level"] == "mandatory"
+
+
+def test_run_metrics_record_all_three_stages(pipeline):
+    metrics = json.loads(
+        (pipeline["workdir"] / "run_metrics.json").read_text(encoding="utf-8")
+    )
+    for stage in ("validate", "calculate", "generate"):
+        assert stage in metrics
+        assert metrics[stage]["duration_ms"] >= 0
+    assert metrics["validate"]["rows_in"] == 50
+    assert metrics["generate"]["letters_written"] == 44
+    assert metrics["generate"]["schema_rejections"] == 0
+    assert "zero" in metrics["token_cost"]
+
+
+def test_every_letter_has_a_schema_valid_model(pipeline):
+    lines = (pipeline["workdir"] / "letter_models.jsonl").read_text(encoding="utf-8")
+    models = [json.loads(line) for line in lines.splitlines() if line]
+    letters = list((pipeline["outdir"] / "letters").glob("*.html"))
+    assert len(models) == len(letters) == 44
+
+
+def test_formula_injection_arrives_inert(tmp_path):
+    donors = tmp_path / "donors.csv"
+    donors.write_text(
+        'donor_name,gifts\n"=HYPERLINK(""http://evil.example"",""x"")",2023:100\n',
+        encoding="utf-8",
+    )
+    workdir = tmp_path / "work"
+    subprocess.run(
+        [sys.executable, str(SCRIPTS / "validate_input.py"), "--input", str(donors),
+         "--config", str(CONFIG), "--workdir", str(workdir)],
+        capture_output=True, text=True, check=True,
+    )
+    validated_raw = (workdir / "validated.csv").read_text(encoding="utf-8")
+    assert "'=HYPERLINK" in validated_raw  # neutralized with a leading apostrophe
+    rows = read_csv(workdir / "validated.csv")
+    assert len(rows) == 1  # still processed, just made inert for spreadsheets
+
+
 def test_future_dated_gift_goes_to_exceptions(tmp_path):
     donors = tmp_path / "donors.csv"
     donors.write_text(

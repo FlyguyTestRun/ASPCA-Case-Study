@@ -86,9 +86,18 @@ The campaign paragraph comes from the approved library below. A language model m
 - Every factual claim in a letter must trace to a validated input field or the campaign config.
 - All donor-derived text is HTML-escaped before rendering.
 
-## Review gates
+## Review gates and escalation
+
+Confidence follows a fail, report, pass rubric. Production AI must know when it does not know, and this is where that knowledge becomes action:
+
+- **Below 0.70: fail.** The record is blocked. No letter is generated until the underlying data is fixed and the file is resubmitted.
+- **Below 0.90: report.** The letter is generated but held for mandatory human review, and an escalation event is emitted so administrators are notified without reading logs.
+- **0.90 and above: pass.** Any warning still flags the letter for recommended review; a clean record needs none.
+
+Independent of score:
 
 - All Platinum letters are individually reviewed by a human before sending. No exceptions.
-- Any letter carrying a warning (confidence below 1.00) is flagged for recommended review; below 0.70 review is mandatory.
+- Every letter is validated as structured data against `references/letter_schema.json` before it is rendered; a model that fails the schema produces no letter.
+- Escalation events for every held or blocked record are written to `work/escalations.jsonl` on every run. If the `ESCALATION_WEBHOOK_URL` environment variable is set, each event is also posted there; by default no network call is made.
 - Records in the exceptions report never generate letters until a data steward resolves them.
 - Nothing produced by this skill is ever sent automatically. Output is files for review, not outbound mail.

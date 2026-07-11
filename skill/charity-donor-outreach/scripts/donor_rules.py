@@ -7,8 +7,11 @@ policy.md and this file ever disagree, that is a defect.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
 
 TIER_MINIMUMS = [
     ("Platinum", 50_000),
@@ -37,7 +40,8 @@ CAMPAIGN_TYPES = (
     "event_fundraiser",
 )
 
-REVIEW_MANDATORY_BELOW = 0.70
+REVIEW_MANDATORY_BELOW = 0.90
+CONFIDENCE_FAIL_BELOW = 0.70
 WARNING_CONFIDENCE_PENALTY = 0.10
 
 _GIFT_TOKEN = re.compile(r"^\s*(\d{4})\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)\s*$")
@@ -180,12 +184,96 @@ def confidence_score(warning_count: int) -> float:
     return round(max(score, 0.0), 2)
 
 
+def confidence_band(confidence: float) -> str:
+    """Fail, report, pass rubric.
+
+    Below 0.70 the record is blocked outright: production AI must know when
+    it does not know. Below 0.90 the letter exists but is held and an
+    escalation event is emitted so admins hear about it without reading logs.
+    """
+    if confidence < CONFIDENCE_FAIL_BELOW:
+        return "fail"
+    if confidence < REVIEW_MANDATORY_BELOW:
+        return "report"
+    return "pass"
+
+
 def review_level(tier: str, confidence: float, review_reasons) -> str:
     if tier == "Platinum" or review_reasons or confidence < REVIEW_MANDATORY_BELOW:
         return "mandatory"
     if confidence < 1.0:
         return "recommended"
     return "none"
+
+
+def csv_safe(value) -> str:
+    """Neutralize spreadsheet formula injection in a CSV cell.
+
+    Excel and Sheets execute cells that begin with = + - or @. Donor-derived
+    text lands in CSVs that fundraising staff open in Excel, so a donor named
+    "=HYPERLINK(...)" must arrive inert.
+    """
+    text = str(value)
+    if text[:1] in ("=", "+", "-", "@"):
+        return "'" + text
+    return text
+
+
+def csv_safe_row(row: dict) -> dict:
+    return {key: csv_safe(value) for key, value in row.items()}
+
+
+def validate_letter_model(model: dict, schema: dict) -> list[str]:
+    """Check a letter model against references/letter_schema.json.
+
+    Structured output before rendering: a letter is validated as data first,
+    and only a valid model is ever turned into HTML.
+    """
+    errors: list[str] = []
+    properties = schema.get("properties", {})
+    for field_name in schema.get("required", []):
+        value = model.get(field_name)
+        if not isinstance(value, str) or not value.strip():
+            errors.append(f"missing or empty required field: {field_name}")
+    for field_name, value in model.items():
+        if field_name not in properties:
+            errors.append(f"unknown field not in schema: {field_name}")
+        elif value is not None and not isinstance(value, str):
+            errors.append(f"{field_name} must be a string")
+    expected_amounts = schema.get("constraints", {}).get("ask_paragraph_dollar_amounts", 1)
+    amounts = re.findall(r"\$[\d,]+", model.get("ask_paragraph") or "")
+    if len(amounts) != expected_amounts:
+        errors.append(
+            f"ask_paragraph must contain exactly {expected_amounts} dollar "
+            f"amount(s), found {len(amounts)}"
+        )
+    url = model.get("donation_url") or ""
+    if url and not url.startswith(("http://", "https://")):
+        errors.append("donation_url must be an http(s) URL")
+    return errors
+
+
+def record_stage_metrics(workdir, stage: str, duration_ms: float, counts: dict) -> None:
+    """Merge one pipeline stage's metrics into work/run_metrics.json.
+
+    Cheap observability: durations and row counts per stage, so exception-rate
+    spikes and slowdowns are visible without a monitoring stack.
+    """
+    path = Path(workdir) / "run_metrics.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    metrics: dict = {}
+    if path.exists():
+        try:
+            metrics = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            metrics = {}
+    metrics[stage] = {
+        "duration_ms": round(duration_ms),
+        "recorded_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        **counts,
+    }
+    metrics["token_cost"] = "zero: no model calls in the batch path at any donor count"
+    path.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
 
 
 # Style feedback guardrails. A style profile may only adjust approved,

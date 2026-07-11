@@ -1,0 +1,34 @@
+{
+  "title": "Donor letter model",
+  "description": "Every letter is validated as structured data against this schema before any HTML is rendered. A letter that fails here is never rendered or delivered; it lands in the manifest with the specific errors. Enforced by validate_letter_model in scripts/donor_rules.py.",
+  "required": [
+    "donor_id",
+    "letter_date",
+    "salutation",
+    "opening_paragraph",
+    "campaign_paragraph",
+    "ask_paragraph",
+    "closing_phrase",
+    "signer_name",
+    "signer_title",
+    "charity_name",
+    "donation_url"
+  ],
+  "properties": {
+    "donor_id": {"type": "string", "description": "Stable identifier from validation"},
+    "letter_date": {"type": "string", "description": "Human-readable date derived from the campaign as_of_date"},
+    "salutation": {"type": "string", "description": "Built per salutation policy; never a guessed title"},
+    "opening_paragraph": {"type": "string"},
+    "campaign_paragraph": {"type": "string", "description": "From the approved library plus config-gated additions only"},
+    "ask_paragraph": {"type": "string", "description": "Must contain exactly one dollar amount, the computed ask"},
+    "closing_phrase": {"type": "string", "description": "House default or the adopted style profile value"},
+    "ps_line": {"type": "string", "description": "Optional; only from an adopted style profile"},
+    "signer_name": {"type": "string", "description": "From campaign config; never invented"},
+    "signer_title": {"type": "string"},
+    "charity_name": {"type": "string"},
+    "donation_url": {"type": "string", "description": "Must be an http(s) URL"}
+  },
+  "constraints": {
+    "ask_paragraph_dollar_amounts": 1
+  }
+}

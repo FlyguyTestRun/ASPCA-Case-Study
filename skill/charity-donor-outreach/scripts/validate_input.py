@@ -18,6 +18,7 @@ import argparse
 import csv
 import json
 import sys
+import time
 from collections import Counter
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -242,10 +243,13 @@ def write_csv(path: Path, rows: list[dict], fieldnames: list[str]) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows(rows)
+        # csv_safe_row neutralizes spreadsheet formula injection: these files
+        # get opened in Excel by fundraising staff.
+        writer.writerows(rules.csv_safe_row(row) for row in rows)
 
 
 def run(input_path: Path, config_path: Path, workdir: Path) -> dict:
+    started = time.perf_counter()
     config, config_errors = load_config(config_path)
     if config_errors:
         for error in config_errors:
@@ -297,6 +301,13 @@ def run(input_path: Path, config_path: Path, workdir: Path) -> dict:
     (workdir / "validation_report.json").write_text(
         json.dumps(report, indent=2), encoding="utf-8"
     )
+    rules.record_stage_metrics(workdir, "validate", (time.perf_counter() - started) * 1000, {
+        "rows_in": report["rows_in"],
+        "rows_validated": report["rows_validated"],
+        "rows_excepted": report["rows_excepted"],
+        "rows_with_warnings": report["rows_with_warnings"],
+        "suggested_corrections": report["suggested_corrections"],
+    })
 
     print(f"rows in:            {report['rows_in']}")
     print(f"validated:          {report['rows_validated']}")

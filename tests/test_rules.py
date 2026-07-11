@@ -150,6 +150,88 @@ class TestComputeAsk:
         assert len(result.trace) >= 3
 
 
+class TestConfidenceBands:
+    """The fail, report, pass rubric: below 0.70 blocked, below 0.90 held."""
+
+    @pytest.mark.parametrize("confidence,band", [
+        (0.69, "fail"),
+        (0.70, "report"),
+        (0.89, "report"),
+        (0.90, "pass"),
+        (1.00, "pass"),
+    ])
+    def test_band_boundaries(self, confidence, band):
+        assert rules.confidence_band(confidence) == band
+
+    def test_report_band_mandates_review(self):
+        assert rules.review_level("Silver", 0.85, []) == "mandatory"
+
+
+class TestCsvSafety:
+    """Spreadsheet formula injection is neutralized in every CSV we write."""
+
+    @pytest.mark.parametrize("hostile", [
+        '=HYPERLINK("http://evil.example","click")',
+        "+1+1",
+        "-2+3",
+        "@SUM(A1)",
+    ])
+    def test_formula_prefixes_are_neutralized(self, hostile):
+        assert rules.csv_safe(hostile) == "'" + hostile
+
+    def test_ordinary_values_pass_through(self):
+        assert rules.csv_safe("Ruth Andersen") == "Ruth Andersen"
+        assert rules.csv_safe("2019:500|2021:1200") == "2019:500|2021:1200"
+        assert rules.csv_safe(43300) == "43300"
+
+
+class TestLetterSchema:
+    SCHEMA = {
+        "required": ["donor_id", "salutation", "ask_paragraph", "donation_url"],
+        "properties": {
+            "donor_id": {}, "salutation": {}, "ask_paragraph": {},
+            "donation_url": {}, "ps_line": {},
+        },
+        "constraints": {"ask_paragraph_dollar_amounts": 1},
+    }
+
+    def valid_model(self):
+        return {
+            "donor_id": "test-donor",
+            "salutation": "Dear Test Donor,",
+            "ask_paragraph": "Please consider a gift of $500.",
+            "donation_url": "https://example.org/donate",
+            "ps_line": "",
+        }
+
+    def test_valid_model_passes(self):
+        assert rules.validate_letter_model(self.valid_model(), self.SCHEMA) == []
+
+    def test_missing_required_field_fails(self):
+        model = self.valid_model()
+        model["salutation"] = ""
+        errors = rules.validate_letter_model(model, self.SCHEMA)
+        assert any("salutation" in error for error in errors)
+
+    def test_two_dollar_amounts_fail(self):
+        model = self.valid_model()
+        model["ask_paragraph"] = "Give $500 or even $1,000."
+        errors = rules.validate_letter_model(model, self.SCHEMA)
+        assert any("dollar" in error for error in errors)
+
+    def test_unknown_field_fails(self):
+        model = self.valid_model()
+        model["tracking_pixel"] = "https://evil.example/pixel"
+        errors = rules.validate_letter_model(model, self.SCHEMA)
+        assert any("unknown field" in error for error in errors)
+
+    def test_non_http_url_fails(self):
+        model = self.valid_model()
+        model["donation_url"] = "javascript:alert(1)"
+        errors = rules.validate_letter_model(model, self.SCHEMA)
+        assert any("http" in error for error in errors)
+
+
 class TestStreakAndReview:
     def test_streak_counts_back_from_prior_year(self):
         assert rules.giving_streak([2021, 2022, 2023], 2024) == 3
