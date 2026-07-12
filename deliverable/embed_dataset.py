@@ -45,7 +45,12 @@ def main() -> None:
 
     if "__DATASET_JSON__" not in html:
         raise SystemExit("dataset placeholder not found in template")
-    html = html.replace("__DATASET_JSON__", json.dumps(data))
+    # Dataset now embeds full generated-letter HTML (see build_dataset.py);
+    # escape a literal "</script" inside that content so the browser's HTML
+    # parser cannot close this script block early, regardless of what any
+    # future letter template happens to contain.
+    dataset_json = json.dumps(data).replace("</script", "<\\/script")
+    html = html.replace("__DATASET_JSON__", dataset_json)
 
     if 'src="__AUDIO_DATA_URI__"' not in html:
         raise SystemExit("audio placeholder not found in template")

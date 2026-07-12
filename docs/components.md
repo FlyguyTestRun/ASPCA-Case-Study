@@ -118,4 +118,4 @@ To see these pieces working together against real data instead of reading about 
 
 *Plain language:* the paper trail: the design review of the original skill, one decision record per correction, the trap catalog, this guide, the plan for growing the system, and the running system's own decision history.
 
-*Engineering note:* [design-review/](design-review/README.md) (validity-checked problem analysis), [adr/](adr/) (29 authored decision records), [decision-log/](decision-log/) (operational decisions written by the system itself: corrections, style adoptions, sign-offs), [trap-registry.md](trap-registry.md), [scale-architecture.md](scale-architecture.md), and [HOURS.md](../HOURS.md) at the root for the engagement time log.
+*Engineering note:* [design-review/](design-review/README.md) (validity-checked problem analysis), [adr/](adr/) (30 authored decision records), [decision-log/](decision-log/) (operational decisions written by the system itself: corrections, style adoptions, sign-offs), [trap-registry.md](trap-registry.md), [scale-architecture.md](scale-architecture.md), and [HOURS.md](../HOURS.md) at the root for the engagement time log.

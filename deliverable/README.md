@@ -22,7 +22,14 @@ by anyone regardless of their technical setup.
   mirroring the Python validator exactly. A Review column shows the same
   letter-eligibility conditions the pipeline enforces downstream: blocked
   pending correction, routed to personal outreach, mandatory or recommended
-  review, or clear for an automated letter.
+  review, or clear for an automated letter. The last gift year displays as
+  an end-of-year date (`12/31/2020`), the source data's own year with no
+  invented day, edited and exported the same way as before.
+- Expanding a donor's row shows the ask calculation trace and, when the
+  pipeline actually produced one, the real generated letter, rendered
+  exactly as written in a sandboxed frame. A donor with no letter shows the
+  specific reason (held pending correction, or routed to personal outreach)
+  instead of a blank space.
 - Accepts an upload of the case study's own unedited donor file, or any file
   in the same shape, and runs it through the same checks: "Apply suggested
   corrections" approves every held mismatch at once, the way
@@ -37,7 +44,7 @@ by anyone regardless of their technical setup.
 
 Nothing in the page sends data anywhere. It reads the embedded dataset (or
 an uploaded file), computes and stores in the browser, and writes a
-download to the local machine. Design record: [ADR 0029](../docs/adr/0029-browser-side-upload-clean-and-persist.md).
+download to the local machine. Design records: [ADR 0029](../docs/adr/0029-browser-side-upload-clean-and-persist.md), [ADR 0030](../docs/adr/0030-letter-preview-and-date-display.md).
 
 ## The guided walkthrough
 
@@ -65,8 +72,10 @@ over the placeholder narration.
 ## How the data gets in
 
 The dataset is not hand-written. `build_dataset.py` runs the real pipeline
-(`validate_input.py`, `calculate_ask.py`) against the fixture and writes
-`dataset.json`; `embed_dataset.py` inlines that JSON into
+(`validate_input.py`, `calculate_ask.py`, `generate_letters.py`) against the
+fixture, into a scratch directory never the committed `output/`, and writes
+`dataset.json`, letter HTML included for every donor the run actually
+produced one for; `embed_dataset.py` inlines that JSON into
 `donor-data-review.template.html` (which keeps the `__DATASET_JSON__`
 placeholder and is never modified) to produce the final
 `donor-data-review.html`. Rebuild after any change to the fixture, the

@@ -299,12 +299,39 @@
   }
   tr.detail-row td {
     background: var(--accent-soft);
+    padding: 0.9rem 0.75rem;
+  }
+  tr.detail-row.hidden { display: none; }
+  .detail-trace {
     font-family: var(--font-mono);
     font-size: 0.78rem;
     color: var(--ink-soft);
     white-space: pre-wrap;
   }
-  tr.detail-row.hidden { display: none; }
+  .detail-letter { margin-top: 0.8rem; }
+  .detail-letter-label {
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-soft);
+    margin-bottom: 0.4rem;
+  }
+  .letter-frame {
+    display: block;
+    width: 100%;
+    min-height: 380px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: #fff;
+  }
+  .detail-no-letter {
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+    font-style: italic;
+    color: var(--ink-soft);
+    margin-top: 0.5rem;
+  }
 
   .empty-state {
     padding: 2rem; text-align: center; color: var(--ink-soft); font-size: 0.9rem;
@@ -656,7 +683,7 @@
 
 <div class="wrap">
   <footer class="page-footer">
-    <span>Generated from the validated pipeline output. As-of date 2024-06-30. Full source, tests, and decision records in the repository.</span>
+    <span title="Every date rule (lapsed status, loyalty uplift, the reference-year trap) runs against this fixed point on purpose, so the same file produces the same result no matter which day this page happens to be opened. See ADR 0004.">Generated from the validated pipeline output. As-of date 2024-06-30, fixed by design for reproducibility, not stale data. Full source, tests, and decision records in the repository.</span>
     <span id="editCount">0 edits pending</span>
   </footer>
 </div>
@@ -729,9 +756,25 @@ __DATASET_JSON__
         ask_trace: d.ask_trace || (d.errors ? "Held: " + d.errors : ""),
         original_confidence: d.confidence || "",
         original_band: d.confidence_band || (d.status === "exception" ? "fail" : ""),
+        letter_html: d.letter_html || "",
+        no_letter_reason: d.no_letter_reason || "",
         edited: !!d.edited,
       };
     });
+  }
+
+  // The source data only ever records a gift year, never a day or month.
+  // Shown as the last possible date within that year so it reads as a real
+  // date without inventing precision the data does not have; the underlying
+  // value used for editing, validation, and export stays a plain year.
+  function formatLastGiftDate(year) {
+    if (!year) return "";
+    return "12/31/" + year;
+  }
+
+  function yearFromDateLikeText(text) {
+    var match = /(\d{4})/.exec(text || "");
+    return match ? parseInt(match[1], 10) : NaN;
   }
 
   // Working copy: edits recompute tier/status live, exactly mirroring
@@ -839,6 +882,43 @@ __DATASET_JSON__
     return donors.filter(function (d) { return d.edited; }).length;
   }
 
+  function escapeHtml(text) {
+    var div = document.createElement("div");
+    div.textContent = text || "";
+    return div.innerHTML;
+  }
+
+  function escapeAttr(text) {
+    return String(text || "")
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;");
+  }
+
+  // The trace and, when the pipeline actually produced one, the real
+  // generated letter for this donor, rendered exactly as it was written
+  // (own inline styles, in a sandboxed iframe so its markup never touches
+  // the surrounding page). Letters come from build_dataset.py running the
+  // real generate_letters.py; this page never writes letter content itself,
+  // so an edit made here is never mistaken for a letter that was actually
+  // produced.
+  function renderDetailCell(row) {
+    var trace = '<div class="detail-trace">' +
+      escapeHtml(row.ask_trace || "No calculation trace: this record was held before ask calculation.") +
+      "</div>";
+    if (row.letter_html) {
+      return trace +
+        '<div class="detail-letter">' +
+        '<div class="detail-letter-label">Generated letter (from the committed pipeline run)</div>' +
+        '<iframe class="letter-frame" title="Generated letter for ' + escapeAttr(row.donor_name) +
+        '" sandbox="" srcdoc="' + escapeAttr(row.letter_html) + '"></iframe>' +
+        "</div>";
+    }
+    return trace +
+      '<div class="detail-no-letter">No letter generated: ' +
+      escapeHtml(row.no_letter_reason || "not part of the committed pipeline run this page was built from.") +
+      "</div>";
+  }
+
   function renderRows() {
     var query = document.getElementById("search").value.trim().toLowerCase();
     var filter = document.getElementById("statusFilter").value;
@@ -863,7 +943,7 @@ __DATASET_JSON__
         '<td>' + (state.lapsed ? pill("warn", "lapsed") : pill("ok", "active")) + '</td>' +
         '<td class="num editable" contenteditable="true" data-field="largest_gift" data-id="' + row.id + '">' + money(row.largest_gift) + '</td>' +
         '<td class="num">' + money(row.lifetime_total) + '</td>' +
-        '<td class="num editable" contenteditable="true" data-field="last_gift_year" data-id="' + row.id + '">' + row.last_gift_year + '</td>' +
+        '<td class="num editable" contenteditable="true" data-field="last_gift_year" data-id="' + row.id + '">' + formatLastGiftDate(row.last_gift_year) + '</td>' +
         '<td class="num">' + (row.ask_amount ? money(row.ask_amount) : "—") + '</td>' +
         '<td class="num">' + (row.original_confidence || "—") + '</td>' +
         '<td>' + pill(reviewPillLevel(review.level), review.text) + '</td>' +
@@ -875,7 +955,8 @@ __DATASET_JSON__
       detail.dataset.detailFor = row.id;
       var td = document.createElement("td");
       td.colSpan = 13;
-      td.textContent = row.ask_trace || "No calculation trace: this record was held before ask calculation.";
+      td.className = "detail-cell";
+      td.innerHTML = renderDetailCell(row);
       detail.appendChild(td);
       tbody.appendChild(detail);
     });
@@ -904,7 +985,7 @@ __DATASET_JSON__
       var n = parseFloat(text.replace(/[$,]/g, ""));
       if (!isNaN(n)) { row.largest_gift = n; row.edited = true; }
     } else if (field === "last_gift_year") {
-      var y = parseInt(text, 10);
+      var y = yearFromDateLikeText(text);
       if (!isNaN(y)) { row.last_gift_year = y; row.edited = true; }
     } else if (field === "stated_tier") {
       if (["Platinum", "Gold", "Silver", "Bronze"].indexOf(text) !== -1) {
@@ -1023,7 +1104,8 @@ __DATASET_JSON__
         largest_gift: d.largest_gift, lifetime_total: d.lifetime_total,
         last_gift_year: d.last_gift_year, ask_amount: d.ask_amount,
         ask_trace: d.ask_trace, confidence: d.original_confidence,
-        confidence_band: d.original_band, edited: d.edited,
+        confidence_band: d.original_band, letter_html: d.letter_html,
+        no_letter_reason: d.no_letter_reason, edited: d.edited,
       };
     });
   }

@@ -39,22 +39,37 @@ def read_csv(path):
 
 
 def main():
+    letters_outdir = WORKDIR / "out"
     run("validate_input.py", "--input", str(FIXTURE))
     run("calculate_ask.py")
+    # Regenerated fresh from this same run, into a scratch outdir, never the
+    # committed output/: the embedded letters must always match exactly what
+    # this script just computed, not a possibly older separate evidence run.
+    run("generate_letters.py", "--outdir", str(letters_outdir))
 
     computed = {row["donor_name"]: row for row in read_csv(WORKDIR / "computed.csv")}
     exceptions = {row["donor_name"]: row for row in read_csv(WORKDIR / "exceptions.csv")}
+    manifest = {row["donor_name"]: row for row in read_csv(letters_outdir / "manifest.csv")}
     raw_rows = read_csv(FIXTURE)
+
+    def read_letter(letter_file):
+        if not letter_file:
+            return ""
+        path = letters_outdir / letter_file
+        return path.read_text(encoding="utf-8") if path.exists() else ""
 
     donors = []
     for raw in raw_rows:
         name = raw["donor_name"]
         entry = {"donor_name": name, "region": raw["region"],
-                 "volunteer": raw["volunteer"], "gifts": raw["gifts"]}
+                 "volunteer": raw["volunteer"], "gifts": raw["gifts"],
+                 "letter_html": "", "no_letter_reason": ""}
         if name in computed:
             record = computed[name]
+            manifest_row = manifest.get(name, {})
             entry.update({
                 "status": "validated",
+                "donor_id": record["donor_id"],
                 "stated_tier": record["stated_tier"],
                 "computed_tier": record["tier"],
                 "tier_mismatch": record["stated_tier"] != record["tier"],
@@ -70,6 +85,11 @@ def main():
                 "warnings": record["warnings"],
                 "review_reasons": record["review_reasons"],
             })
+            entry["letter_html"] = read_letter(manifest_row.get("letter_file"))
+            if not entry["letter_html"]:
+                entry["no_letter_reason"] = (
+                    record["review_reasons"] or "held for review before a letter is generated"
+                )
         else:
             record = exceptions[name]
             entry.update({
@@ -80,11 +100,13 @@ def main():
                 "errors": record["errors"],
                 "suggested_correction": record["suggested_correction"],
             })
+            entry["no_letter_reason"] = "excluded from letter generation until a person approves a fix"
         donors.append(entry)
 
+    letters_written = sum(1 for d in donors if d["letter_html"])
     out_path = ROOT / "deliverable" / "dataset.json"
     out_path.write_text(json.dumps(donors, indent=2), encoding="utf-8")
-    print(f"wrote {len(donors)} donor records to {out_path}")
+    print(f"wrote {len(donors)} donor records ({letters_written} with a generated letter) to {out_path}")
 
 
 if __name__ == "__main__":
