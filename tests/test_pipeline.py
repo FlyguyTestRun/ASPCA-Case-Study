@@ -115,6 +115,38 @@ def test_no_invented_titles_or_genders(pipeline):
             assert honorific not in text, f"invented honorific in {letter.name}"
 
 
+def test_letter_date_is_not_the_as_of_date(pipeline):
+    # as_of_date is a business-logic reference point for tier and
+    # lapsed-status math (ADR 0004) and stays fixed at 2024-06-30 in this
+    # config; the date printed on a letter is a different fact and must
+    # never be silently tied to it, or every letter would carry a frozen
+    # date regardless of when it was actually generated.
+    import datetime
+    today_text = f"{datetime.date.today():%B} {datetime.date.today().day}, {datetime.date.today().year}"
+    for letter in (pipeline["outdir"] / "letters").glob("*.html"):
+        text = letter.read_text(encoding="utf-8")
+        assert "June 30, 2024" not in text, f"letter date tied to as_of_date in {letter.name}"
+        assert today_text in text, f"letter date is not today's date in {letter.name}"
+
+
+def test_letter_date_override_is_respected(tmp_path):
+    workdir = tmp_path / "work"
+    outdir = tmp_path / "output"
+    for script, extra in (
+        ("validate_input.py", ["--input", str(FIXTURE)]),
+        ("calculate_ask.py", []),
+        ("generate_letters.py", ["--outdir", str(outdir), "--letter-date", "2025-01-15"]),
+    ):
+        result = subprocess.run(
+            [sys.executable, str(SCRIPTS / script), "--config", str(CONFIG),
+             "--workdir", str(workdir), *extra],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, f"{script} failed:\n{result.stderr}"
+    letter = next((outdir / "letters").glob("*.html"))
+    assert "January 15, 2025" in letter.read_text(encoding="utf-8")
+
+
 def test_lapsed_letters_never_claim_current_giving(tmp_path):
     # A lapsed donor's letter must never describe their support as ongoing
     # or steady (the annual fund paragraph's default claim), and must not

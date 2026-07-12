@@ -107,7 +107,7 @@ const doc = new Document({
           "The fix is one principle applied consistently: verify the data first, then let each tool do the job it is actually good at. Deterministic code owns validation, tier computation, ask arithmetic, and rendering. The model contributes only bounded, optional personalization, grounded in verified fields, off by default. Humans review by exception, with mandatory gates where the stakes are highest."
         ),
         body(
-          "Run against the case study's own 50 donors: the pipeline catches four mislabeled tiers (one my own manual review of the table had missed), flags a reference-date trap, routes two lapsed major donors away from form letters, and generates 44 letters with a full audit trail. Nothing is ever sent automatically. 122 automated tests hold this behavior in place, re-run on every change by CI."
+          "Run against the case study's own 50 donors: the pipeline catches four mislabeled tiers (one my own manual review of the table had missed), flags a reference-date trap, routes two lapsed major donors away from form letters, and generates 44 letters with a full audit trail. Nothing is ever sent automatically. 124 automated tests hold this behavior in place, re-run on every change by CI."
         ),
 
         h2("Part 1: Improvements and Their Impact"),
@@ -146,7 +146,7 @@ const doc = new Document({
         bulletPoint("**A review interface** (app/review_app.py) so fundraising staff, not just engineers, can run and audit this system: upload or use a built-in sample, see every held record and warning in plain language, sign off individually on anything that matters, and archive a completed run before the next one overwrites it. Every stage names the exact script behind it, so the interface teaches as it operates."),
         bulletPoint("**A fix-and-resubmit loop**: the validator suggests the correct value wherever it is computable; a person approves, the file re-runs in one click."),
         bulletPoint("**A style feedback loop**: reviewer edits teach the system's voice, only after repeated evidence, only within hard guardrails, only on named adoption; it can change how a letter sounds, never what it claims or asks."),
-        bulletPoint("**30 Architecture Decision Records**, one per correction, and an operational decision log the running system writes for itself (approvals, adoptions, sign-offs, archives), each with a named approver."),
+        bulletPoint("**31 Architecture Decision Records**, one per correction, and an operational decision log the running system writes for itself (approvals, adoptions, sign-offs, archives), each with a named approver."),
 
         body(
           "The same rigor applied to the original skill was turned on the rewrite itself before submission, twice. A second-pass audit found and fixed two scale-triggered defects the first pass's own tests had not caught (a donor-name-derived ID could collide between two different donors; output was never cleared between runs, risking stale files). A full proofread across all four campaign types, not just the one committed run, found and fixed a letter telling a lapsed donor his support had been “steady,” a factual claim his own record contradicts. Every one of these is now a permanent regression test, not a lesson learned once. docs/trap-registry.md records all of it, findings the rewrite introduced included."

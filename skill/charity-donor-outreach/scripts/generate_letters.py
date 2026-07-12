@@ -1,14 +1,19 @@
 """Render donor letters and the review manifest from computed ask data.
 
 Usage:
-    python generate_letters.py --config <campaign.json> [--workdir work] [--outdir output]
+    python generate_letters.py --config <campaign.json> [--workdir work] [--outdir output] \
+        [--letter-date YYYY-MM-DD]
 
 Reads work/computed.csv and writes:
     output/letters/<donor_id>.html   one letter per eligible donor
     output/manifest.csv              one row per donor for human review
 
-Nothing is sent anywhere. The output is files for a human to review; the
-manifest is the review checklist.
+The date printed on each letter is the day the letter is generated
+(--letter-date, default today), never the campaign config's as_of_date,
+which is a business-logic reference point for tier and lapsed-status math
+and stays fixed for reproducibility (ADR 0004). Nothing is sent anywhere.
+The output is files for a human to review; the manifest is the review
+checklist.
 """
 
 from __future__ import annotations
@@ -156,10 +161,17 @@ def build_ask_paragraph(donor: dict, config: dict) -> str:
     return text
 
 
-def build_letter_model(donor: dict, config: dict, style: dict) -> dict:
+def build_letter_model(donor: dict, config: dict, style: dict, letter_date: date) -> dict:
     """Assemble the structured letter model. Validated against
-    references/letter_schema.json before anything is rendered."""
-    letter_date = date.fromisoformat(config["as_of_date"])
+    references/letter_schema.json before anything is rendered.
+
+    letter_date is the day the letter is actually generated, not
+    config["as_of_date"]: as_of_date is a business-logic reference point for
+    tier and lapsed-status math (ADR 0004) and must stay fixed for those
+    calculations to be reproducible; the date printed on a letter a donor
+    receives is a different fact entirely and should read the way any real
+    mail-merge would, as of today, regardless of which reference date the
+    same run used to decide who is lapsed."""
     return {
         "donor_id": donor["donor_id"],
         "letter_date": f"{letter_date:%B} {letter_date.day}, {letter_date.year}",
@@ -223,11 +235,15 @@ def load_style(style_path: Path | None) -> dict:
 
 
 def run(config_path: Path, workdir: Path, outdir: Path, template_path: Path,
-        style_path: Path | None = None) -> list[dict]:
+        style_path: Path | None = None, letter_date: date | None = None) -> list[dict]:
     started = time.perf_counter()
     config = json.loads(config_path.read_text(encoding="utf-8-sig"))
     template = template_path.read_text(encoding="utf-8")
     style = load_style(style_path)
+    # Defaults to the real day this run happens, not the business-logic
+    # as_of_date; --letter-date overrides it for a reproducible test run or
+    # a deliberately backdated batch.
+    letter_date = letter_date or date.today()
     schema = json.loads(
         (Path(__file__).resolve().parent.parent / "references" / "letter_schema.json")
         .read_text(encoding="utf-8")
@@ -269,7 +285,7 @@ def run(config_path: Path, workdir: Path, outdir: Path, template_path: Path,
                 "letter_file": "",
             }
             if donor["ask_amount"]:
-                model = build_letter_model(donor, config, style)
+                model = build_letter_model(donor, config, style, letter_date)
                 errors = rules.validate_letter_model(model, schema)
                 if errors:
                     schema_rejections += 1
@@ -319,8 +335,13 @@ def main() -> None:
         "--style", default=Path("feedback/style_profile.json"), type=Path,
         help="approved style profile; missing file means house defaults",
     )
+    parser.add_argument(
+        "--letter-date", default=None, type=date.fromisoformat,
+        help="date printed on the letter, YYYY-MM-DD; defaults to today, "
+             "independent of the campaign config's as_of_date",
+    )
     args = parser.parse_args()
-    run(args.config, args.workdir, args.outdir, args.template, args.style)
+    run(args.config, args.workdir, args.outdir, args.template, args.style, args.letter_date)
 
 
 if __name__ == "__main__":

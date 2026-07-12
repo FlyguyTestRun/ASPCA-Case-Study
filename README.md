@@ -29,7 +29,7 @@ The original skill's own 50-donor table, transcribed verbatim into [a test fixtu
 | Uncertain records | Indistinguishable from clean ones | Confidence rubric: below 0.70 blocked, below 0.90 held and escalated |
 | Letters | Free-form HTML in chat | Validated against a [schema](skill/charity-donor-outreach/references/letter_schema.json) as data, then rendered to files with a review manifest |
 | Hostile input | Trusted | CSV formula injection neutralized, uploads capped, donor text is data, never instructions |
-| Tests | None | **122**, re-run with the planted traps by [CI](.github/workflows/ci.yml) on every change |
+| Tests | None | **124**, re-run with the planted traps by [CI](.github/workflows/ci.yml) on every change |
 
 Full analysis: the [design review](docs/design-review/README.md) examines the original problem by problem with validity verdicts, and the [trap registry](docs/trap-registry.md) maps every planted defect to the mechanism that catches it and the test that proves it.
 
@@ -127,7 +127,7 @@ A completed run is committed in [output/](output/) as evidence: the [review mani
 | [Requirements checklist](docs/requirements-checklist.md) | Every production-readiness control, named, hyperlinked to its implementation and its test |
 | [Design review](docs/design-review/README.md) | The original skill examined problem by problem, each with a validity verdict, the fix, and what changes at scale |
 | [Components guide](docs/components.md) | Every script, reference file, and interface explained for both non-technical readers and engineers |
-| [Decision records](docs/adr/) | 30 ADRs: one per correction, each with the problem, the decision, and the forward impact |
+| [Decision records](docs/adr/) | 31 ADRs: one per correction, each with the problem, the decision, and the forward impact |
 | [Decision history](docs/decision-log/) | ADR-style entries the running system writes for itself: applied corrections, style adoptions, batch sign-offs, each with a named approver |
 | [Trap registry](docs/trap-registry.md) | Every planted defect: where it hides, how it is caught, the test that proves it |
 | [Scale architecture](docs/scale-architecture.md) | What gets built when volume demands it, and the trigger for each addition |
