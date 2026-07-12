@@ -319,12 +319,126 @@
     font-size: 0.75rem;
     color: var(--ink-soft);
     cursor: pointer;
+    z-index: 700;
+  }
+
+  /* ---------- guided walkthrough ---------- */
+  .masthead-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+    margin-top: 1.4rem;
+  }
+  button.tour-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--paper);
+    font-size: 0.88rem;
+    padding: 0.6rem 1.1rem;
+  }
+  :root[data-theme="dark"] button.tour-cta {
+    background: var(--accent); border-color: var(--accent); color: #06110D;
+  }
+  @media (prefers-color-scheme: dark) {
+    button.tour-cta { background: var(--accent); border-color: var(--accent); color: #06110D; }
+  }
+  :root[data-theme="light"] button.tour-cta {
+    background: var(--ink); border-color: var(--ink); color: var(--paper);
+  }
+  .tour-cta-icon { font-size: 0.7rem; }
+  .tour-cta-note { font-size: 0.82rem; color: var(--ink-soft); }
+
+  .tour-highlight {
+    position: fixed;
+    border-radius: 8px;
+    box-shadow: 0 0 0 4px var(--accent), 0 0 0 9999px rgba(8, 12, 10, 0.62);
+    transition: top 0.5s ease, left 0.5s ease, width 0.5s ease, height 0.5s ease, opacity 0.3s ease;
+    pointer-events: none;
+    z-index: 550;
+    opacity: 0;
+  }
+  .tour-highlight.active { opacity: 1; }
+  .tour-active .reduce-motion-off { transition: none !important; }
+
+  .tour-caption {
+    position: fixed;
+    left: 50%;
+    bottom: 1.5rem;
+    transform: translateX(-50%);
+    width: min(560px, calc(100vw - 2rem));
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.28);
+    padding: 1.1rem 1.25rem 0.9rem;
+    z-index: 600;
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+  }
+  .tour-caption.active { opacity: 1; pointer-events: auto; }
+  .tour-caption .tour-step-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .tour-caption h4 {
+    font-family: var(--font-head);
+    font-weight: 500;
+    font-size: 1.1rem;
+    margin: 0.2rem 0 0.4rem;
+  }
+  .tour-caption p { margin: 0 0 0.85rem; font-size: 0.9rem; color: var(--ink-soft); }
+  .tour-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .tour-dots { display: flex; gap: 0.32rem; margin-right: auto; }
+  .tour-dots span {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--line);
+    display: inline-block;
+  }
+  .tour-dots span.done { background: var(--accent); }
+  .tour-dots span.current { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .tour-controls button {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.78rem;
+  }
+  .tour-controls button.icon-btn {
+    background: transparent;
+    border-color: var(--line);
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+  .tour-progress {
+    height: 2px;
+    background: var(--line);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 0.7rem;
+  }
+  .tour-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tour-highlight { transition: opacity 0.3s ease; }
   }
 </style>
 </head>
 <body>
 
 <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle color theme">Theme</button>
+<audio id="tourAudio" preload="auto" src="__AUDIO_DATA_URI__"></audio>
 
 <header class="masthead">
   <div class="wrap">
@@ -337,6 +451,13 @@
       Four records were held for correction, all four proven back to the
       source file. Edit any cell to see the checks re-run live.
     </p>
+    <div class="masthead-actions">
+      <button id="startTourBtn" type="button" class="tour-cta">
+        <span class="tour-cta-icon" aria-hidden="true">▶</span>
+        Start the two-minute walkthrough
+      </button>
+      <span class="tour-cta-note">Why a well-designed prompt is not enough, walked through live on this data.</span>
+    </div>
     <div class="stat-row" id="statRow"></div>
   </div>
 </header>
@@ -374,7 +495,7 @@
         <line x1="130" y1="133" x2="185" y2="103" class="dag-arrow" marker-end="url(#arrowhead)" />
 
         <!-- validate -->
-        <g class="dag-node stage">
+        <g class="dag-node stage" id="dagNodeValidate">
           <rect x="190" y="70" width="150" height="60" rx="6" />
           <text class="title" x="200" y="93">1. Validate</text>
           <text class="sub" x="200" y="108">recompute tier, dates,</text>
@@ -404,10 +525,13 @@
         </g>
         <text class="dag-annot" x="615" y="150">no unconfirmed claims possible</text>
 
+        <!-- invisible bridge spanning stages 2+3, used only as a tour spotlight target -->
+        <rect id="dagNodeCalcGen" x="395" y="65" width="365" height="70" fill="transparent" stroke="none" />
+
         <line x1="760" y1="100" x2="815" y2="100" class="dag-arrow" marker-end="url(#arrowhead)" />
 
         <!-- gate -->
-        <g class="dag-node">
+        <g class="dag-node" id="dagNodeGate">
           <rect x="820" y="65" width="140" height="70" rx="6" />
           <text class="title" x="830" y="90">Human review</text>
           <text class="sub" x="830" y="105">Platinum: always</text>
@@ -432,7 +556,7 @@
       <span><i style="background:var(--crit)"></i>where a planted error is caught</span>
     </div>
 
-    <div class="why-grid">
+    <div class="why-grid" id="whyGrid">
       <div class="why-card">
         <h3>Tiers are computed, not trusted</h3>
         <p>Four donors were filed under a tier their own giving history contradicts. The gift list is the source of truth; the stated label is checked against it every run.</p>
@@ -755,6 +879,242 @@ __DATASET_JSON__
 
   renderStats();
   renderRows();
+
+  // ============================================================
+  // Guided walkthrough
+  //
+  // Six beats, spotlighting a real part of the page for each. Reads
+  // naturally as a silent captioned slideshow on its own; if the embedded
+  // narration audio is present, playback drives step timing (each beat gets
+  // a slice of the audio proportional to its caption's word count), and
+  // falls back to a words-per-second estimate if audio cannot play.
+  // ============================================================
+  var PACE_WORDS_PER_SEC = 2.5;
+
+  function wordCount(text) { return text.trim().split(/\s+/).length; }
+
+  function findDonorRow(name) {
+    var searchBox = document.getElementById("search");
+    var filterBox = document.getElementById("statusFilter");
+    searchBox.value = name;
+    filterBox.value = "all";
+    renderRows();
+    var row = [...tbody.querySelectorAll("tr:not(.detail-row)")].find(function (r) {
+      return r.children[1] && r.children[1].textContent.trim() === name;
+    });
+    return row || null;
+  }
+
+  function clearDonorSearch() {
+    document.getElementById("search").value = "";
+    renderRows();
+  }
+
+  var TOUR_STEPS = [
+    {
+      label: "1 / 6, the result",
+      title: "The result",
+      body: "A well written prompt raises the odds a model behaves. It never guarantees it. Fifty donor records ran through this redesigned system. Here is what verified actually looks like, and why the difference matters.",
+      target: function () { return document.getElementById("statRow"); },
+    },
+    {
+      label: "2 / 6, checkpoint one",
+      title: "Never trust, always verify",
+      body: "Before a model ever sees this data, every donor's tier, total, and date gets recomputed from the source numbers and checked in code. This single stage caught four donors filed under the wrong tier.",
+      target: function () { return document.getElementById("dagNodeValidate"); },
+    },
+    {
+      label: "3 / 6, checkpoints two and three",
+      title: "Money and language, not guesses",
+      body: "Arithmetic runs once, in code, the same way every time. Every letter is checked against a schema before it becomes a letter. A prompt asking a model to calculate or promise something is still just asking. This makes it structurally impossible to get wrong.",
+      target: function () { return document.getElementById("dagNodeCalcGen"); },
+    },
+    {
+      label: "4 / 6, the review gate",
+      title: "The system admits what it does not know",
+      body: "Below ninety percent confidence, a person reviews before anything goes out. Below seventy, the system stops and asks for help instead of guessing. That is a harness admitting uncertainty instead of hiding it.",
+      target: function () { return document.getElementById("dagNodeGate"); },
+    },
+    {
+      label: "5 / 6, a real example",
+      title: "One real example",
+      body: "Shirley Magnusdottir was filed as Silver. Her actual giving computes to Gold. A well written prompt might catch this on a good day. This system catches it every single time, because the check is code, not a suggestion.",
+      target: function () { return findDonorRow("Shirley Magnusdottir"); },
+      onExit: clearDonorSearch,
+    },
+    {
+      label: "6 / 6, the whole difference",
+      title: "The whole difference, in one line",
+      body: "A well designed prompt improves probability. A well designed harness replaces probability with a guarantee, wherever a guarantee is possible, and asks a human wherever it is not. Same model. Completely different system.",
+      target: function () { return document.getElementById("whyGrid"); },
+    },
+  ];
+
+  var totalWords = TOUR_STEPS.reduce(function (sum, step) { return sum + wordCount(step.body); }, 0);
+
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var tourState = { active: false, index: 0, playing: false, timer: null, audio: null };
+
+  var highlightEl = document.createElement("div");
+  highlightEl.className = "tour-highlight";
+  document.body.appendChild(highlightEl);
+
+  var captionEl = document.createElement("div");
+  captionEl.className = "tour-caption";
+  captionEl.innerHTML =
+    '<div class="tour-progress"><div class="tour-progress-bar" id="tourProgressBar"></div></div>' +
+    '<div class="tour-step-label" id="tourStepLabel"></div>' +
+    '<h4 id="tourTitle"></h4>' +
+    '<p id="tourBody"></p>' +
+    '<div class="tour-controls">' +
+      '<div class="tour-dots" id="tourDots"></div>' +
+      '<button type="button" class="icon-btn" id="tourPrev">Back</button>' +
+      '<button type="button" class="icon-btn" id="tourPlayPause">Pause</button>' +
+      '<button type="button" id="tourNext">Next</button>' +
+      '<button type="button" class="icon-btn" id="tourEnd">End</button>' +
+    '</div>';
+  document.body.appendChild(captionEl);
+
+  var dotsContainer = document.getElementById("tourDots");
+  var dots = TOUR_STEPS.map(function () {
+    var d = document.createElement("span");
+    dotsContainer.appendChild(d);
+    return d;
+  });
+
+  function positionHighlight(el) {
+    if (!el) { highlightEl.classList.remove("active"); return; }
+    var rect = el.getBoundingClientRect();
+    var pad = 10;
+    highlightEl.style.top = (rect.top - pad) + "px";
+    highlightEl.style.left = (rect.left - pad) + "px";
+    highlightEl.style.width = (rect.width + pad * 2) + "px";
+    highlightEl.style.height = (rect.height + pad * 2) + "px";
+    highlightEl.classList.add("active");
+  }
+
+  function updateDots() {
+    dots.forEach(function (d, i) {
+      d.className = i < tourState.index ? "done" : (i === tourState.index ? "current" : "");
+    });
+  }
+
+  function stepDurationMs(step, totalDurationSec) {
+    var share = wordCount(step.body) / totalWords;
+    var seconds = totalDurationSec ? share * totalDurationSec : wordCount(step.body) / PACE_WORDS_PER_SEC;
+    return Math.max(seconds, 3) * 1000;
+  }
+
+  function runProgressBar(durationMs) {
+    var bar = document.getElementById("tourProgressBar");
+    bar.style.transition = "none";
+    bar.style.width = "0%";
+    if (reduceMotion) { bar.style.width = "100%"; return; }
+    requestAnimationFrame(function () {
+      bar.style.transition = "width " + (durationMs / 1000) + "s linear";
+      bar.style.width = "100%";
+    });
+  }
+
+  function clearTimer() {
+    if (tourState.timer) { clearTimeout(tourState.timer); tourState.timer = null; }
+  }
+
+  function showStep(index) {
+    var previous = TOUR_STEPS[tourState.index];
+    if (previous && previous.onExit) previous.onExit();
+
+    tourState.index = index;
+    var step = TOUR_STEPS[index];
+    var el = step.target();
+
+    document.getElementById("tourStepLabel").textContent = step.label;
+    document.getElementById("tourTitle").textContent = step.title;
+    document.getElementById("tourBody").textContent = step.body;
+    updateDots();
+
+    if (el) {
+      el.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
+      window.setTimeout(function () { positionHighlight(el); }, reduceMotion ? 0 : 260);
+    } else {
+      highlightEl.classList.remove("active");
+    }
+
+    var totalDuration = tourState.audio && tourState.audio.duration ? tourState.audio.duration : 0;
+    var duration = stepDurationMs(step, totalDuration);
+    runProgressBar(duration);
+
+    clearTimer();
+    if (tourState.playing) {
+      tourState.timer = window.setTimeout(function () { advance(1); }, duration);
+    }
+  }
+
+  function advance(direction) {
+    var next = tourState.index + direction;
+    if (next < 0) return;
+    if (next >= TOUR_STEPS.length) { endTour(); return; }
+    showStep(next);
+  }
+
+  function setPlaying(playing) {
+    tourState.playing = playing;
+    document.getElementById("tourPlayPause").textContent = playing ? "Pause" : "Play";
+    if (playing) {
+      if (tourState.audio) { tourState.audio.play().catch(function () {}); }
+      showStep(tourState.index);
+    } else {
+      clearTimer();
+      if (tourState.audio) tourState.audio.pause();
+      document.getElementById("tourProgressBar").style.transition = "none";
+    }
+  }
+
+  function startTour() {
+    tourState.active = true;
+    document.body.classList.add("tour-active");
+    captionEl.classList.add("active");
+
+    var audioTag = document.getElementById("tourAudio");
+    if (audioTag && audioTag.currentSrc) {
+      tourState.audio = audioTag;
+      tourState.audio.currentTime = 0;
+    }
+
+    tourState.playing = true;
+    showStep(0);
+    if (tourState.audio) { tourState.audio.play().catch(function () {}); }
+  }
+
+  function endTour() {
+    tourState.active = false;
+    clearTimer();
+    document.body.classList.remove("tour-active");
+    captionEl.classList.remove("active");
+    highlightEl.classList.remove("active");
+    if (tourState.audio) { tourState.audio.pause(); tourState.audio.currentTime = 0; }
+    var lastStep = TOUR_STEPS[tourState.index];
+    if (lastStep && lastStep.onExit) lastStep.onExit();
+  }
+
+  document.getElementById("startTourBtn").addEventListener("click", startTour);
+  document.getElementById("tourNext").addEventListener("click", function () { advance(1); });
+  document.getElementById("tourPrev").addEventListener("click", function () { advance(-1); });
+  document.getElementById("tourEnd").addEventListener("click", endTour);
+  document.getElementById("tourPlayPause").addEventListener("click", function () { setPlaying(!tourState.playing); });
+
+  document.addEventListener("keydown", function (e) {
+    if (!tourState.active) return;
+    if (e.key === "Escape") endTour();
+    else if (e.key === "ArrowRight") advance(1);
+    else if (e.key === "ArrowLeft") advance(-1);
+    else if (e.key === " ") { e.preventDefault(); setPlaying(!tourState.playing); }
+  });
+
+  window.addEventListener("resize", function () {
+    if (tourState.active) positionHighlight(TOUR_STEPS[tourState.index].target());
+  });
 })();
 </script>
 

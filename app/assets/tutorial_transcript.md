@@ -1,17 +1,25 @@
-# Audio walkthrough transcript
+# Walkthrough script
 
-Candid field notes from building and testing this system, not a marketing tour. Narration is generated from this transcript with Windows speech synthesis as a placeholder; Bryan replaces it with his own recording (see `app/assets/README.md`).
+Read for the guided walkthrough embedded in `deliverable/donor-data-review.html`. Six beats, under two minutes total, each matched to a spotlighted part of the page. This script is also the basis for the training point worth carrying to the team: a well-written prompt only ever improves the odds a model behaves; a well-designed harness converts parts of that into a guarantee.
+
+Recording notes: natural pace, brief pause between beats, no need to rush. See `app/assets/README.md` for how to record and swap this in.
 
 ---
 
-Here is what actually happened when I put this system through its paces, not the pitch version.
+**1. The result.**
+A well written prompt raises the odds a model behaves. It never guarantees it. Fifty donor records ran through this redesigned system. Here is what verified actually looks like, and why the difference matters.
 
-The original skill looked fine on a read-through. It reads badly once you run it. I hand-checked the fifty-donor table myself first and found three donors whose tier did not match their own giving history. When the validator ran the same file, it found four. The fourth one, Shirley Magnusdottir, filed as Silver with twenty-two thousand dollars in lifetime giving, is the exact kind of mismatch a careful read misses and a computed check never does.
+**2. Checkpoint one: never trust, always verify.**
+Before a model ever sees this data, every donor's tier, total, and date gets recomputed from the source numbers and checked in code. This single stage caught four donors filed under the wrong tier.
 
-The date logic was the other trap. One donor had a gift dated a year later than every other record in the file. Nothing in the original skill said what today even meant, so that donor's loyalty bonus would silently change depending on when you happened to run the letters. Fixing it took one line: an explicit reference date in the campaign settings, checked against every gift.
+**3. Checkpoints two and three: money and language, not guesses.**
+Arithmetic runs once, in code, the same way every time. Every letter is checked against a schema before it becomes a letter. A prompt asking a model to calculate or promise something is still just asking. This makes it structurally impossible to get wrong.
 
-I also audited the source table itself before trusting my own instincts about it. The arithmetic in the original file was fine. Every largest gift, every lifetime total, every last-gift year added up correctly on its own. The real defects were the tier labels and the dates, not the math. That distinction matters, because it tells you where validation effort actually pays off, and it is not where I expected.
+**4. The system admits what it does not know.**
+Below ninety percent confidence, a person reviews before anything goes out. Below seventy, the system stops and asks for help instead of guessing. That is a harness admitting uncertainty instead of hiding it.
 
-The rest is standard engineering discipline applied where the original skill had none. Every letter is checked against a schema before it becomes HTML, not after. Every donor record gets a confidence score, and anything under ninety percent is held for a person to look at before it goes anywhere. Every approved fix, every adopted style choice, every sign-off writes its own dated decision record, the same way an engineering team keeps a change log.
+**5. One real example.**
+Shirley Magnusdottir was filed as Silver. Her actual giving computes to Gold. A well written prompt might catch this on a good day. This system catches it every single time, because the check is code, not a suggestion.
 
-Nothing here sends anything. You review, you approve, you stay in charge.
+**6. The whole difference, in one line.**
+A well designed prompt improves probability. A well designed harness replaces probability with a guarantee, wherever a guarantee is possible, and asks a human wherever it is not. Same model. Completely different system.
