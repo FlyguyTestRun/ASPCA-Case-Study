@@ -299,6 +299,23 @@ def test_unknown_campaign_type_stops_the_run(tmp_path):
     assert "unknown campaign_type" in result.stderr
 
 
+def test_config_with_byte_order_mark_still_loads(tmp_path):
+    # Notepad and PowerShell both write a UTF-8 BOM by default on Windows; a
+    # non-technical user editing the campaign config there should not get a
+    # cryptic JSON parse error for an otherwise valid file.
+    config_text = CONFIG.read_text(encoding="utf-8")
+    bom_config = tmp_path / "config.json"
+    bom_config.write_bytes(b"\xef\xbb\xbf" + config_text.encode("utf-8"))
+    workdir = tmp_path / "work"
+    result = subprocess.run(
+        [sys.executable, str(SCRIPTS / "validate_input.py"), "--input", str(FIXTURE),
+         "--config", str(bom_config), "--workdir", str(workdir)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert (workdir / "validation_report.json").exists()
+
+
 def test_malformed_tier_label_caught_by_schema_before_business_rules(tmp_path):
     # "Platnium" is not a valid tier label at all (a typo, not a mismatch);
     # the structural schema layer catches this before tier-mismatch business

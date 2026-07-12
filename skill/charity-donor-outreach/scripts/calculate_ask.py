@@ -70,7 +70,7 @@ def emit_escalations(computed: list[dict], workdir: Path) -> int:
 
 def run(config_path: Path, workdir: Path) -> list[dict]:
     started = time.perf_counter()
-    config = json.loads(config_path.read_text(encoding="utf-8"))
+    config = json.loads(config_path.read_text(encoding="utf-8-sig"))
     as_of_year = date.fromisoformat(config["as_of_date"]).year
     campaign_type = config["campaign_type"]
 

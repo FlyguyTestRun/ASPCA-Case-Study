@@ -25,6 +25,7 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -37,6 +38,7 @@ FIXTURE = SKILL_DIR / "assets" / "sample_donors.csv"
 TEMPLATE = SKILL_DIR / "assets" / "template.html"
 STYLE_PROFILE = REPO_ROOT / "feedback" / "style_profile.json"
 DECISION_LOG = REPO_ROOT / "docs" / "decision-log"
+ARCHIVE_ROOT = REPO_ROOT / "output" / "archive"
 AUDIO_FILE = Path(__file__).resolve().parent / "assets" / "tutorial_walkthrough.wav"
 TRANSCRIPT_FILE = Path(__file__).resolve().parent / "assets" / "tutorial_transcript.md"
 
@@ -52,6 +54,47 @@ CAMPAIGN_LABELS = {
 STEP_NAMES = ["Upload", "Findings", "Review", "Finalize"]
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
+# Mirrors the pipeline table in SKILL.md. Used to label which script is
+# running live, and to teach the mapping between what this interface does
+# and the actual code behind it, for anyone studying this as a reference
+# implementation rather than just using it.
+PIPELINE_STAGES = [
+    {
+        "script": "scripts/validate_input.py",
+        "title": "1. Schema and business-rule validation",
+        "purpose": (
+            "Checks the file's structure against references/donor.schema.json, "
+            "then recomputes tier, lapsed status, and totals from the gift "
+            "history and checks them against what the file states. Nothing "
+            "moves forward until this passes."
+        ),
+        "determinism": "Deterministic",
+    },
+    {
+        "script": "scripts/calculate_ask.py",
+        "title": "2. Deterministic ask calculation",
+        "purpose": (
+            "Computes every donor's ask amount with a fixed formula and one "
+            "rounding step at the end, plus a confidence score. No arithmetic "
+            "ever happens inside a language model in this system."
+        ),
+        "determinism": "Deterministic",
+    },
+    {
+        "script": "scripts/generate_letters.py",
+        "title": "3. Letter assembly, schema check, and render",
+        "purpose": (
+            "Builds a structured letter object per donor from approved "
+            "language, validates it against references/letter_schema.json, "
+            "and only then renders it to HTML. A model is never in this path "
+            "unless a user explicitly asks for personalization (see "
+            "prompts/personalization_prompt.md), and even then only within "
+            "hard guardrails."
+        ),
+        "determinism": "Deterministic",
+    },
+]
+
 st.set_page_config(page_title="Donor Outreach Review", page_icon="📬", layout="wide")
 
 
@@ -65,8 +108,14 @@ def operator_name() -> str:
     return (st.session_state.get("operator") or "").strip()
 
 
-def run_pipeline(donor_bytes: bytes, donor_suffix: str, config: dict) -> dict:
-    """Run validate -> calculate -> generate in a temp dir, return all outputs."""
+def run_pipeline(donor_bytes: bytes, donor_suffix: str, config: dict,
+                  status=None) -> dict:
+    """Run validate -> calculate -> generate in a temp dir, return all outputs.
+
+    If a Streamlit status container is given, it is updated with the exact
+    script being executed as each stage runs, so a viewer watching the
+    interface can see the real command line behind each step.
+    """
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         donor_path = tmp_path / f"donors{donor_suffix}"
@@ -83,7 +132,11 @@ def run_pipeline(donor_bytes: bytes, donor_suffix: str, config: dict) -> dict:
                                      "--style", str(STYLE_PROFILE)]),
         ]
         logs = []
-        for script, extra in steps:
+        for stage_index, (script, extra) in enumerate(steps):
+            if status is not None:
+                stage_info = PIPELINE_STAGES[stage_index]
+                status.update(label=f"Running {stage_info['script']}")
+                status.write(f"**{stage_info['title']}**  \n{stage_info['purpose']}")
             result = subprocess.run(
                 [sys.executable, str(SCRIPTS / script), "--config", str(config_path),
                  "--workdir", str(workdir), *extra],
@@ -91,7 +144,11 @@ def run_pipeline(donor_bytes: bytes, donor_suffix: str, config: dict) -> dict:
             )
             logs.append(f"$ {script}\n{result.stdout}{result.stderr}")
             if result.returncode != 0:
+                if status is not None:
+                    status.update(label=f"{script} failed", state="error")
                 return {"ok": False, "error": result.stderr or result.stdout, "step": script}
+        if status is not None:
+            status.update(label="All three stages complete", state="complete")
 
         letters = {
             path.name: path.read_text(encoding="utf-8")
@@ -198,11 +255,58 @@ def start_run(data: bytes, suffix: str, label: str, config: dict) -> None:
     st.session_state["donor_bytes"] = data
     st.session_state["donor_suffix"] = suffix
     st.session_state["source"] = label
-    st.session_state["result"] = run_pipeline(data, suffix, config)
+    with st.status("Starting the pipeline...", expanded=True) as status:
+        st.session_state["result"] = run_pipeline(data, suffix, config, status=status)
     st.session_state["reviewed"] = {}
     st.session_state["signoff_recorded"] = False
     st.session_state["run_id"] = st.session_state.get("run_id", 0) + 1
     st.session_state["stage"] = 2
+
+
+def archive_current_run(result: dict, label: str, note: str, approved_by: str) -> Path:
+    """Snapshot the in-memory run result to a labeled, timestamped folder.
+
+    generate_letters.py clears output/letters/ at the start of every run
+    (ADR 0022), and this app runs the pipeline in a temp directory that is
+    gone the moment run_pipeline returns, so archiving happens here, from
+    the letters and manifest already held in memory, not from a live
+    output directory. See ADR 0027.
+    """
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    slug = rules.slugify(label)[:60] or "run"
+    archive_dir = ARCHIVE_ROOT / f"{timestamp}-{slug}"
+    letters_dir = archive_dir / "letters"
+    letters_dir.mkdir(parents=True, exist_ok=False)
+
+    result["manifest"].to_csv(archive_dir / "manifest.csv", index=False)
+    for name, content in result["letters"].items():
+        (letters_dir / name).write_text(content, encoding="utf-8")
+
+    letter_count = int((result["manifest"]["letter_file"] != "").sum())
+    info = {
+        "label": label,
+        "note": note,
+        "archived_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "rules_version": rules.RULES_VERSION,
+        "donor_count": len(result["manifest"]),
+        "letter_count": letter_count,
+        "approved_by": approved_by,
+    }
+    (archive_dir / "archive_info.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
+
+    rules.record_decision(
+        DECISION_LOG,
+        title=f"Archived run: {label}",
+        problem=("A completed, signed-off run needed to be preserved before "
+                 "the next run clears and overwrites output/letters/."),
+        decision=(f"Snapshot saved with {letter_count} letters and "
+                  f"{info['donor_count']} donor records."),
+        effect=("This snapshot is permanent and unaffected by any future "
+                "run; it stays until removed by hand."),
+        approved_by=approved_by,
+        source="review app, finalize step",
+    )
+    return archive_dir
 
 
 def go(stage: int) -> None:
@@ -309,6 +413,43 @@ if stage == 1:
         "against it, so mislabeled tiers, unbalanced totals, and impossible "
         "dates are caught here, not in a donor's mailbox."
     )
+
+    with st.expander("Two ways to start: your own file, or the built-in sample"):
+        st.markdown(
+            "**Upload your own donor file.** CSV or Excel, up to 5 MB. Every "
+            "column this system needs is listed in "
+            "`skill/charity-donor-outreach/references/input_schema.md`; "
+            "donor name and giving history are the only required columns, "
+            "everything else is optional and gets checked if present.\n\n"
+            "**Or try the built-in sample.** The button below loads "
+            "`skill/charity-donor-outreach/assets/sample_donors.csv`, the "
+            "same fifty donors from the original case study's own skill "
+            "file, transcribed field for field, planted errors included. "
+            "It exists specifically so this pipeline always has something "
+            "real to run against without needing live donor data, and it "
+            "doubles as the permanent regression fixture: [ADR "
+            "0019](https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0019-data-provenance-and-fixture-fidelity.md) "
+            "covers where it came from."
+        )
+
+    with st.expander("How this pipeline actually works, script by script"):
+        st.markdown(
+            "Every button in this app calls one of three Python scripts, in "
+            "the same order, every time. Nothing here is a black box; each "
+            "one is short enough to read end to end."
+        )
+        for stage_info in PIPELINE_STAGES:
+            st.markdown(
+                f"**`{stage_info['script']}`**: {stage_info['title']}  \n"
+                f"{stage_info['purpose']}"
+            )
+        st.caption(
+            "Full source: skill/charity-donor-outreach/scripts/. The "
+            "orchestration instructions an AI assistant follows to run "
+            "these in order are in SKILL.md; the business rules behind the "
+            "numbers are in references/policy.md."
+        )
+
     upload_col, sample_col = st.columns([3, 1])
     with upload_col:
         uploaded = st.file_uploader("Donor file (CSV or Excel)", type=["csv", "xlsx", "xls"])
@@ -649,6 +790,41 @@ if stage == 4:
             "Letters + manifest (ZIP)", letters_zip(letters, manifest),
             file_name="letters_for_review.zip", width="stretch",
         )
+
+        st.divider()
+        tip(
+            "generate_letters.py clears output/letters/ at the start of "
+            "every run, on purpose, so the manifest and the folder can "
+            "never disagree (ADR 0022). That means this run's output is "
+            "otherwise gone the moment the next one starts. Archiving here "
+            "keeps a permanent, labeled copy before that happens."
+        )
+        st.subheader("Keep a record of this run")
+        archive_label = st.text_input(
+            "Label for this archive",
+            value=f"{st.session_state.get('source', 'run')} - "
+                  f"{CAMPAIGN_LABELS.get(config['campaign_type'], config['campaign_type'])}",
+        )
+        archive_note = st.text_input("Note (optional)", placeholder="anything worth remembering about this batch")
+        if st.button("Archive this run", disabled=not operator_name() or not archive_label.strip()):
+            archive_dir = archive_current_run(
+                result, archive_label.strip(), archive_note.strip(), operator_name()
+            )
+            st.success(f"Archived to {archive_dir.relative_to(REPO_ROOT)}")
+        if not operator_name():
+            st.caption("Enter your name in the sidebar to archive a run.")
+
+        past_runs = rules.list_archived_runs(ARCHIVE_ROOT)
+        if past_runs:
+            with st.expander(f"Past archived runs ({len(past_runs)})"):
+                for past in past_runs:
+                    st.markdown(
+                        f"**{past['label']}**: {past['letter_count']} letters, "
+                        f"{past['donor_count']} donors, rules {past['rules_version']}, "
+                        f"archived {past['archived_at_utc']} by {past.get('approved_by', 'unknown')}"
+                    )
+                    if past.get("note"):
+                        st.caption(past["note"])
 
     if st.button("Back to review", key="back_from_finalize"):
         go(3)

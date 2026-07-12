@@ -35,7 +35,10 @@ NO_VALUES = {"no", "n", "false", "0", ""}
 def load_config(path: Path) -> tuple[dict, list[str]]:
     errors: list[str] = []
     try:
-        config = json.loads(path.read_text(encoding="utf-8"))
+        # utf-8-sig tolerates a byte-order-mark, which Notepad and PowerShell
+        # both write by default on Windows and would otherwise make a
+        # perfectly valid config file fail to parse.
+        config = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError) as exc:
         return {}, [f"config unreadable: {exc}"]
 

@@ -1,0 +1,8 @@
+{
+  "label": "Pushed 2026-07-12, before letter-quality whitespace pass",
+  "note": "Snapshot of the run as pushed to GitHub, preserved before the BOM-tolerance and blank-line cleanup fixes.",
+  "archived_at_utc": "2026-07-12T18:43:19+00:00",
+  "rules_version": "1.1.0",
+  "donor_count": 46,
+  "letter_count": 44
+}

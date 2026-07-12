@@ -7,8 +7,10 @@ policy.md and this file ever disagree, that is a defect.
 
 from __future__ import annotations
 
+import csv
 import json
 import re
+import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -323,6 +325,66 @@ def record_decision(log_dir, title: str, problem: str, decision: str,
         encoding="utf-8",
     )
     return entry_path
+
+
+def archive_run(outdir, archive_root, label: str, note: str = "") -> Path:
+    """Snapshot a run's letters and manifest into a labeled, timestamped
+    folder before the next run overwrites output/letters/ in place.
+
+    generate_letters.py clears output/letters/ at the start of every run
+    (ADR 0022), which is correct so the manifest and the folder can never
+    disagree, but it means a run's output is otherwise gone the moment the
+    next one starts. This is the lightweight, on-demand record of a run
+    that ADR 0022 deferred as a full run-versioning system: no change to
+    the pipeline scripts or CI, just a copy taken when a person asks for
+    one, from the review app or the command line.
+    """
+    outdir = Path(outdir)
+    manifest_path = outdir / "manifest.csv"
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"no manifest.csv in {outdir}; run generate_letters.py first")
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    slug = slugify(label)[:60] or "run"
+    archive_dir = Path(archive_root) / f"{timestamp}-{slug}"
+    archive_dir.mkdir(parents=True, exist_ok=False)
+
+    shutil.copy2(manifest_path, archive_dir / "manifest.csv")
+    letters_src = outdir / "letters"
+    if letters_src.exists():
+        shutil.copytree(letters_src, archive_dir / "letters")
+
+    with manifest_path.open(newline="", encoding="utf-8") as handle:
+        manifest_rows = list(csv.DictReader(handle))
+    letter_count = sum(1 for row in manifest_rows if row.get("letter_file"))
+
+    info = {
+        "label": label,
+        "note": note,
+        "archived_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "rules_version": RULES_VERSION,
+        "donor_count": len(manifest_rows),
+        "letter_count": letter_count,
+    }
+    (archive_dir / "archive_info.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
+    return archive_dir
+
+
+def list_archived_runs(archive_root) -> list[dict]:
+    """Read back every archived run's metadata, newest first."""
+    archive_root = Path(archive_root)
+    if not archive_root.exists():
+        return []
+    runs = []
+    for entry in sorted(archive_root.iterdir(), reverse=True):
+        info_path = entry / "archive_info.json"
+        if not entry.is_dir() or not info_path.exists():
+            continue
+        info = json.loads(info_path.read_text(encoding="utf-8"))
+        info["path"] = str(entry)
+        info["dir_name"] = entry.name
+        runs.append(info)
+    return runs
 
 
 def record_stage_metrics(workdir, stage: str, duration_ms: float, counts: dict) -> None:

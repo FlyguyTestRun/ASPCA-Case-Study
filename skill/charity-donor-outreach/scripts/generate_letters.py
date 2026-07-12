@@ -198,7 +198,17 @@ def render_letter(model: dict, template: str) -> str:
     rendered = template
     for key, value in fields.items():
         rendered = rendered.replace("{{" + key + "}}", value)
-    return rendered
+
+    # An empty PS_BLOCK leaves a whitespace-only line where the template
+    # placed it. Collapse runs of blank lines so a letter with no P.S. has
+    # clean markup, not stray whitespace before the closing tag.
+    lines = [line.rstrip() for line in rendered.splitlines()]
+    cleaned: list[str] = []
+    for line in lines:
+        if line == "" and cleaned and cleaned[-1] == "":
+            continue
+        cleaned.append(line)
+    return "\n".join(cleaned) + "\n"
 
 
 def load_style(style_path: Path | None) -> dict:
@@ -215,7 +225,7 @@ def load_style(style_path: Path | None) -> dict:
 def run(config_path: Path, workdir: Path, outdir: Path, template_path: Path,
         style_path: Path | None = None) -> list[dict]:
     started = time.perf_counter()
-    config = json.loads(config_path.read_text(encoding="utf-8"))
+    config = json.loads(config_path.read_text(encoding="utf-8-sig"))
     template = template_path.read_text(encoding="utf-8")
     style = load_style(style_path)
     schema = json.loads(
