@@ -96,7 +96,7 @@ const doc = new Document({
         h1("Charity Donor Outreach Skill: Assessment and Rewrite"),
         byline("Bryan Shaw, July 2026"),
         body(
-          "Prepared in response to the PDS case study: assess the charity-donor-outreach skill, describe improvements and their impact, and rewrite the skill. This document answers both parts directly; the full repository (rewritten skill, tests, run evidence, and a decision record for every change) is the working proof behind it."
+          "Prepared in response to the case study brief: assess the charity-donor-outreach skill, describe improvements and their impact, and rewrite the skill. This document answers both parts directly; the full repository (rewritten skill, tests, run evidence, and a decision record for every change) is the working proof behind it."
         ),
 
         h2("Summary"),
@@ -146,7 +146,7 @@ const doc = new Document({
         bulletPoint("**A review interface** (app/review_app.py) so fundraising staff, not just engineers, can run and audit this system: upload or use a built-in sample, see every held record and warning in plain language, sign off individually on anything that matters, and archive a completed run before the next one overwrites it. Every stage names the exact script behind it, so the interface teaches as it operates."),
         bulletPoint("**A fix-and-resubmit loop**: the validator suggests the correct value wherever it is computable; a person approves, the file re-runs in one click."),
         bulletPoint("**A style feedback loop**: reviewer edits teach the system's voice, only after repeated evidence, only within hard guardrails, only on named adoption; it can change how a letter sounds, never what it claims or asks."),
-        bulletPoint("**27 Architecture Decision Records**, one per correction, and an operational decision log the running system writes for itself (approvals, adoptions, sign-offs, archives), each with a named approver."),
+        bulletPoint("**28 Architecture Decision Records**, one per correction, and an operational decision log the running system writes for itself (approvals, adoptions, sign-offs, archives), each with a named approver."),
 
         body(
           "The same rigor applied to the original skill was turned on the rewrite itself before submission, twice. A second-pass audit found and fixed two scale-triggered defects the first pass's own tests had not caught (a donor-name-derived ID could collide between two different donors; output was never cleared between runs, risking stale files). A full proofread across all four campaign types, not just the one committed run, found and fixed a letter telling a lapsed donor his support had been “steady,” a factual claim his own record contradicts. Every one of these is now a permanent regression test, not a lesson learned once. docs/trap-registry.md records all of it, findings the rewrite introduced included."

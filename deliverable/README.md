@@ -1,8 +1,9 @@
 # Standalone Deliverable
 
 `donor-data-review.html` is a single self-contained file: open it in any
-browser, no server, no install, no internet connection required. It is what
-goes to Doug alongside the repository link and the assessment.
+browser, no server, no install, no internet connection required. It is meant
+to travel alongside the repository link and the written assessment, viewable
+by anyone regardless of their technical setup.
 
 ## What it does
 

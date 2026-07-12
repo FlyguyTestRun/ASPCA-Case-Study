@@ -4,7 +4,7 @@ Status: accepted. Date: 2026-07-11. Revised same day to add a guided, spotlighte
 
 ## Problem
 
-The Python pipeline and the Streamlit review app both require an installed environment to run. Doug, or anyone reviewing this case study on a machine without Python, needed a way to see the verified result and inspect or correct the underlying donor data with nothing more than a browser: no server, no install, no network dependency, and at fifty records, no reason not to have one.
+The Python pipeline and the Streamlit review app both require an installed environment to run. Anyone reviewing this case study on a machine without Python needed a way to see the verified result and inspect or correct the underlying donor data with nothing more than a browser: no server, no install, no network dependency, and at fifty records, no reason not to have one.
 
 ## Decision
 
@@ -26,4 +26,4 @@ Building this against a real Node-executed test surfaced a second real bug, the 
 
 ## What the revision changes going forward
 
-The under-two-minutes budget and the six-beat structure are now enforced, not promised: a future edit that lengthens the script past the budget, drops a step, or breaks a spotlight target fails the test suite before it fails a demo in front of Doug or the team. The proportional-timing design also means the file never needs re-timing work again when the real recording replaces the placeholder.
+The under-two-minutes budget and the six-beat structure are now enforced, not promised: a future edit that lengthens the script past the budget, drops a step, or breaks a spotlight target fails the test suite before it fails a live demo. The proportional-timing design also means the file never needs re-timing work again when the real recording replaces the placeholder.

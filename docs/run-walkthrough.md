@@ -159,6 +159,8 @@ schema rejections:  0
 manifest rows:      50
 ```
 
+Forty-eight, not forty-four: this run applies Stop 2's corrections first, so all 50 donors validate and only the two lapsed Platinum donors are held back. The 44 letters committed in [output/](../output/) come from a separate, uncorrected run kept as evidence of the raw fixture's first pass, with its 4 exceptions still unresolved (50 minus 4 exceptions minus 2 lapsed).
+
 Before Earl Fontaine's letter becomes HTML, it exists as a structured object, and that object is checked against a schema:
 
 ```json
