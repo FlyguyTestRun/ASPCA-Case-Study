@@ -1,6 +1,6 @@
 # Design Review: the Original Skill, Problem by Problem
 
-This is the full architectural review of the original `charity-donor-outreach` skill, written as I would write it for an internal design review board. Each problem states what is wrong, why it matters, whether the concern survives scrutiny (a few of my first-pass instincts needed sharpening, and those verdicts are recorded honestly), what the rebuild does about it, and what changes at scale.
+This is the full architectural review of the original `charity-donor-outreach` skill. Each problem states what is wrong, why it matters, whether the concern survives scrutiny (a few of my first-pass instincts needed sharpening, and those verdicts are recorded honestly), what the rebuild does about it, and what changes at scale.
 
 One framing point before the list. The original is a prompt wearing a skill's file format. It has no tools, no gates, no verifiable state, and no separation between data, logic, and language. A skill earns a place in an agentic system when it gives the agent those things: deterministic tools to call, policies it cannot cross, and outputs that can be checked. That is the difference between instructing a model and engineering a system, and it is the whole thesis of this rebuild. Knowing when not to use an LLM is almost as important as anything the model was trained on.
 
