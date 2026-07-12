@@ -40,7 +40,7 @@ The original skill instructed the assistant to tell every donor their gift would
 
 ## Regression testing
 
-111 automated tests, every expected value hand-calculated from policy before the code was written. The original skill's own donor table, transcribed verbatim into a permanent fixture with its planted errors preserved, is re-run by [CI](../.github/workflows/ci.yml) on every push, so the specific mistakes this exercise was seeded with can never quietly return. [`docs/trap-registry.md`](trap-registry.md) maps every planted defect to the test that guards it. Design record: [ADR 0013](adr/0013-ci-regression-gate.md).
+118 automated tests, every expected value hand-calculated from policy before the code was written. The original skill's own donor table, transcribed verbatim into a permanent fixture with its planted errors preserved, is re-run by [CI](../.github/workflows/ci.yml) on every push, so the specific mistakes this exercise was seeded with can never quietly return. [`docs/trap-registry.md`](trap-registry.md) maps every planted defect to the test that guards it. Design record: [ADR 0013](adr/0013-ci-regression-gate.md).
 
 ## Versioned business rules
 
@@ -55,6 +55,7 @@ A few controls this system has that go past what is usually asked for in a first
 - **Stale-output prevention**, so a donor excluded from a later run can never leave an orphaned file with no manifest row: [ADR 0022](adr/0022-donor-id-collisions-and-stale-output.md).
 - **A standalone, offline HTML deliverable** with a guided two-minute walkthrough, for review by anyone without Python installed: [ADR 0021](adr/0021-standalone-review-artifact.md).
 - **A data provenance audit**, verifying the fixture is a verbatim transcription of the original skill's own table: [ADR 0019](adr/0019-data-provenance-and-fixture-fidelity.md).
+- **A clean-room agent dry run**: every command in `SKILL.md` executed verbatim, from a scratch directory, with no prior knowledge of the deeper build, proving the skill works the way an AI assistant discovering and following it actually would, independent of any interface built on top: [ADR 0028](adr/0028-verified-as-an-agent-skill.md).
 
 ## What this document is not
 
