@@ -6,9 +6,21 @@ Every moving part of this repository, explained twice: first in plain language f
 
 ### skill/charity-donor-outreach/SKILL.md
 
-*Plain language:* the instruction sheet an AI assistant follows. It tells the assistant to run the scripts in order, stop and show a human every data problem before going further, and never guess, calculate, or send anything itself.
+*Plain language:* the instruction sheet an AI assistant follows. It tells the assistant to run the scripts in order, stop and show a human every data problem before going further, and never guess, calculate, or send anything itself. Opens with a table naming every pipeline stage and marking which ones are deterministic code versus the one optional step that touches a model.
 
-*Engineering note:* narrow trigger description; six-step workflow (validate, stop and report, calculate, generate, bounded personalization, hand off); hard rules the assistant cannot cross. Kept small on purpose: policy detail lives in `references/` and loads only when needed (progressive disclosure), scripts are executed rather than read into context.
+*Engineering note:* narrow trigger description; a pipeline overview table mapping each stage to its file and its determinism; six-step workflow (validate, stop and report, calculate, generate, bounded personalization, hand off); hard rules the assistant cannot cross. Kept small on purpose: policy detail lives in `references/`, the one model-facing prompt lives in `prompts/`, and both load only when needed (progressive disclosure); scripts are executed rather than read into context.
+
+### references/donor.schema.json
+
+*Plain language:* the checklist a donor row must pass before the system even starts thinking about their giving: right columns, right kinds of values.
+
+*Engineering note:* structural JSON Schema for a raw donor row, checked by `validate_donor_row` at the top of the per-row loop in `validate_input.py`, before any business rule (tier computation, date logic) runs. Required fields, tier and volunteer enums, a gifts-field pattern. Additive to, not a replacement for, the business-rule checks that follow it.
+
+### prompts/personalization_prompt.md
+
+*Plain language:* the only page in this whole system that an AI model actually reads to do creative work, and the rules it has to follow while doing it.
+
+*Engineering note:* the standalone, versioned prompt for SKILL.md step 5 (bounded personalization), extracted out of the orchestration file so the one model-facing prompt in this skill is reviewable and versionable on its own. Off by default; a letter is complete and correct with zero model calls.
 
 ### references/policy.md
 

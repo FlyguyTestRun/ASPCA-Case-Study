@@ -39,6 +39,15 @@ CAMPAIGN_PARAGRAPHS = {
         "to plan rescues, staff shelters, and answer every call for help. Your "
         "continued partnership is the foundation this work is built on."
     ),
+    # A lapsed donor has not, by definition, given steady support recently.
+    # references/policy.md requires this variant for status == "lapsed" so the
+    # campaign paragraph never asserts a giving pattern the donor's own record
+    # contradicts.
+    "annual_fund_lapsed": (
+        "Our work to plan rescues, staff shelters, and answer every call for "
+        "help depends on donors who step back in when they are able. We would "
+        "be glad to have you with us again."
+    ),
     "capital_campaign": (
         "We are building spaces that will shelter and heal animals for decades "
         "to come. A gift to this campaign is a lasting investment, one that will "
@@ -78,22 +87,36 @@ def build_salutation(donor: dict) -> str:
 
 def build_opening(donor: dict, charity_name: str) -> str:
     lifetime = float(donor["lifetime_total"])
-    if lifetime >= rules.LIFETIME_MENTION_MINIMUM:
+    if lifetime < rules.LIFETIME_MENTION_MINIMUM:
+        return (
+            f"On behalf of everyone at {charity_name}, thank you for your support. "
+            "Gifts like yours are what make this work possible."
+        )
+    if donor["status"] == "lapsed":
+        # Naming the specific last-gift year here, right before the ask
+        # paragraph says "it has been a while," reads as a jarring pivot from
+        # present-tense thanks to reminding them how long they have been gone.
+        # The re-engagement ask paragraph already carries that message warmly;
+        # this paragraph just acknowledges what they have given, not when.
         return (
             f"On behalf of everyone at {charity_name}, thank you for your "
-            f"generous support. Your giving of ${lifetime:,.0f} over the years, "
-            f"including your most recent gift in {donor['last_gift_year']}, has "
-            "made a real difference for animals in need."
+            f"generous support over the years. Your giving of ${lifetime:,.0f} "
+            "has made a real difference for animals in need."
         )
     return (
-        f"On behalf of everyone at {charity_name}, thank you for your support. "
-        "Gifts like yours are what make this work possible."
+        f"On behalf of everyone at {charity_name}, thank you for your "
+        f"generous support. Your giving of ${lifetime:,.0f} over the years, "
+        f"including your most recent gift in {donor['last_gift_year']}, has "
+        "made a real difference for animals in need."
     )
 
 
 def build_campaign_paragraph(donor: dict, config: dict) -> str:
     campaign = config["campaign_type"]
-    paragraph = CAMPAIGN_PARAGRAPHS[campaign]
+    if campaign == "annual_fund" and donor["status"] == "lapsed":
+        paragraph = CAMPAIGN_PARAGRAPHS["annual_fund_lapsed"]
+    else:
+        paragraph = CAMPAIGN_PARAGRAPHS[campaign]
 
     if campaign == "emergency_appeal" and config.get("match_confirmed"):
         sponsor = config.get("match_sponsor", "")
@@ -210,6 +233,12 @@ def run(config_path: Path, workdir: Path, outdir: Path, template_path: Path,
 
     letters_dir = outdir / "letters"
     letters_dir.mkdir(parents=True, exist_ok=True)
+    # Clear the previous run's letters first. Without this, a donor excluded
+    # from this run (newly excepted, newly lapsed-major) would leave a stale
+    # HTML file behind with no manifest row pointing to it, and a reviewer
+    # browsing the folder directly could act on outdated content.
+    for stale in letters_dir.glob("*.html"):
+        stale.unlink()
 
     manifest: list[dict] = []
     schema_rejections = 0

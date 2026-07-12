@@ -10,6 +10,7 @@ The brief: a nonprofit technology consultant drafted an AI agent skill, [charity
 - [How the pipeline works](#how-the-pipeline-works)
 - [Try it](#try-it)
 - [Standalone review artifact](#standalone-review-artifact)
+- [Requirements checklist](#requirements-checklist)
 - [Where everything lives](#where-everything-lives)
 - [Design principles](#design-principles)
 
@@ -28,7 +29,7 @@ The original skill's own 50-donor table, transcribed verbatim into [a test fixtu
 | Uncertain records | Indistinguishable from clean ones | Confidence rubric: below 0.70 blocked, below 0.90 held and escalated |
 | Letters | Free-form HTML in chat | Validated against a [schema](skill/charity-donor-outreach/references/letter_schema.json) as data, then rendered to files with a review manifest |
 | Hostile input | Trusted | CSV formula injection neutralized, uploads capped, donor text is data, never instructions |
-| Tests | None | **86**, re-run with the planted traps by [CI](.github/workflows/ci.yml) on every change |
+| Tests | None | **111**, re-run with the planted traps by [CI](.github/workflows/ci.yml) on every change |
 
 Full analysis: the [design review](docs/design-review/README.md) examines the original problem by problem with validity verdicts, and the [trap registry](docs/trap-registry.md) maps every planted defect to the mechanism that catches it and the test that proves it.
 
@@ -41,12 +42,12 @@ flowchart LR
     DF["Donor file\nCSV or XLSX"] --> V
     CC["Campaign config\nJSON"] --> V
 
-    subgraph validate ["Stage 1: verify everything"]
-        V["validate_input.py\nrecompute tiers, totals,\ndates, statuses"]
+    subgraph validate ["Stage 1: schema, then verify"]
+        V["validate_input.py\ndonor.schema.json, then\nrecompute tiers, totals,\ndates, statuses"]
     end
 
     V -->|"rows that fail"| EX["exceptions.csv\n+ suggested corrections"]
-    V -->|"rows that pass"| VA["validated.csv"]
+    V -->|"rows that pass"| VA["validated.csv\n+ validated.jsonl"]
 
     subgraph calculate ["Stage 2: deterministic math"]
         CA["calculate_ask.py\npolicy arithmetic, audit trace,\nconfidence bands"]
@@ -54,7 +55,7 @@ flowchart LR
 
     VA --> CA
     CC --> CA
-    CA --> CO["computed.csv"]
+    CA --> CO["computed.csv\n+ computed.jsonl"]
     CA --> ES["escalations.jsonl\nwebhook-ready events"]
 
     subgraph generate ["Stage 3: schema, then render"]
@@ -111,14 +112,19 @@ A completed run is committed in [output/](output/) as evidence: the [review mani
 
 [deliverable/donor-data-review.html](deliverable/donor-data-review.html) opens in any browser, no install, no server, no network. It opens with a guided, spotlighted, under-two-minute walkthrough (narrated, captioned, keyboard-navigable) built around one question: why a well written prompt only ever improves the odds a model behaves, and what a well designed harness adds on top of that, doubling as a training artifact for the team. Below the walkthrough it states the verified result up front, diagrams the pipeline with each stage tied to the problem it solves, and lists all 50 donors in a searchable, editable table: correct a flagged field and the same tier and date logic the Python validator runs re-checks it instantly, in the browser. Export produces a corrected CSV. The embedded dataset is built from the real pipeline, never hand-typed, and both the page's validation logic and its walkthrough script are executed in Node and pinned against the Python output and a two-minute time budget by [tests/test_deliverable_logic.py](tests/test_deliverable_logic.py). Details and rebuild instructions: [deliverable/README.md](deliverable/README.md); design record: [ADR 0021](docs/adr/0021-standalone-review-artifact.md).
 
+## Requirements checklist
+
+[docs/requirements-checklist.md](docs/requirements-checklist.md) answers, one at a time and by name, the specific controls a production AI system review looks for: schema validation, required field validation, input sanitization, failure handling, audit logging, structured JSON between processing stages, separation of prompt, data, and business logic, elimination of hallucination-prone calculations, removal of unethical instructions, regression testing, and versioned business rules. Each item links directly to the file, ADR, and test that satisfies it, not a claim.
+
 ## Where everything lives
 
 | Document | What it is |
 |---|---|
 | [Assessment](assessment/ASSESSMENT.md) | The written case-study response: findings, impact, the rewrite, the production path |
+| [Requirements checklist](docs/requirements-checklist.md) | Every production-readiness control, named, hyperlinked to its implementation and its test |
 | [Design review](docs/design-review/README.md) | The original skill examined problem by problem, each with a validity verdict, the fix, and what changes at scale |
 | [Components guide](docs/components.md) | Every script, reference file, and interface explained for both non-technical readers and engineers |
-| [Decision records](docs/adr/) | 20 ADRs: one per correction, each with the problem, the decision, and the forward impact |
+| [Decision records](docs/adr/) | 26 ADRs: one per correction, each with the problem, the decision, and the forward impact |
 | [Decision history](docs/decision-log/) | ADR-style entries the running system writes for itself: applied corrections, style adoptions, batch sign-offs, each with a named approver |
 | [Trap registry](docs/trap-registry.md) | Every planted defect: where it hides, how it is caught, the test that proves it |
 | [Scale architecture](docs/scale-architecture.md) | What gets built when volume demands it, and the trigger for each addition |

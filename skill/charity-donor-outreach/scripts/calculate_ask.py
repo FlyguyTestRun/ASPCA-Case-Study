@@ -124,6 +124,11 @@ def run(config_path: Path, workdir: Path) -> list[dict]:
         writer = csv.DictWriter(handle, fieldnames=list(computed[0].keys()) if computed else [])
         writer.writeheader()
         writer.writerows(rules.csv_safe_row(record) for record in computed)
+    # Structured JSON alongside the CSV, same records, one donor object per
+    # line; see the matching note in validate_input.py.
+    (workdir / "computed.jsonl").write_text(
+        "".join(json.dumps(record) + "\n" for record in computed), encoding="utf-8"
+    )
 
     escalated = emit_escalations(computed, workdir)
 

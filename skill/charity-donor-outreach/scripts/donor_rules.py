@@ -13,6 +13,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Bumped whenever a threshold, formula, or gate in this file or policy.md
+# changes in a way that would change output for the same input. Stamped into
+# validation_report.json, computed output, and every decision-log entry, so
+# any artifact can be traced back to the exact rule version that produced it,
+# independent of reading git history. See ADR 0024.
+RULES_VERSION = "1.1.0"
+
 TIER_MINIMUMS = [
     ("Platinum", 50_000),
     ("Gold", 10_000),
@@ -223,6 +230,44 @@ def csv_safe_row(row: dict) -> dict:
     return {key: csv_safe(value) for key, value in row.items()}
 
 
+def validate_donor_row(row: dict, schema: dict) -> list[str]:
+    """Check a raw donor row against references/donor.schema.json.
+
+    This is a structural check, run before any business rule: required
+    fields present, known fields shaped correctly (an enum value, a gifts
+    string matching the expected pattern). It catches a malformed file (a
+    renamed column, a garbage tier label, a gifts field that is not even
+    close to the expected format) with a specific reason before tier
+    computation or date math ever runs on the row. Business-rule checks
+    (does the stated tier match the computed one, does a date make sense)
+    are a separate, later layer; this function knows nothing about them.
+    """
+    errors: list[str] = []
+    properties = schema.get("properties", {})
+    required = schema.get("required", [])
+    for field_name in required:
+        value = row.get(field_name)
+        if value is None or not str(value).strip():
+            errors.append(f"schema: missing required field {field_name!r}")
+
+    for field_name, prop in properties.items():
+        raw_value = row.get(field_name)
+        text = "" if raw_value is None else str(raw_value)
+        if not text and field_name not in required:
+            continue  # optional and blank: nothing further to check
+        enum = prop.get("enum")
+        if enum is not None and text not in enum:
+            errors.append(
+                f"schema: {field_name} value {text!r} is not one of the allowed values"
+            )
+        pattern = prop.get("pattern")
+        if pattern is not None and text and not re.match(pattern, text):
+            errors.append(
+                f"schema: {field_name} value {text!r} does not match the expected format"
+            )
+    return errors
+
+
 def validate_letter_model(model: dict, schema: dict) -> list[str]:
     """Check a letter model against references/letter_schema.json.
 
@@ -270,7 +315,8 @@ def record_decision(log_dir, title: str, problem: str, decision: str,
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     entry_path.write_text(
         f"# Decision {number:04d}: {title}\n\n"
-        f"Date: {today}. Approved by: {approved_by}. Source: {source}.\n\n"
+        f"Date: {today}. Approved by: {approved_by}. Source: {source}. "
+        f"Rules version: {RULES_VERSION}.\n\n"
         f"## Problem\n\n{problem}\n\n"
         f"## Decision\n\n{decision}\n\n"
         f"## Effect going forward\n\n{effect}\n",
@@ -296,6 +342,7 @@ def record_stage_metrics(workdir, stage: str, duration_ms: float, counts: dict) 
     metrics[stage] = {
         "duration_ms": round(duration_ms),
         "recorded_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "rules_version": RULES_VERSION,
         **counts,
     }
     metrics["token_cost"] = "zero: no model calls in the batch path at any donor count"

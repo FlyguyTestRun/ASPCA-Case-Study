@@ -39,7 +39,8 @@ The audit that closed this review made the point concretely ([ADR 0019](../adr/0
 
 ## Related documents
 
-- [Trap registry](../trap-registry.md): every planted defect in the case data, the mechanism that catches it, and the test that proves it.
+- [Requirements checklist](../requirements-checklist.md): every production-readiness control named directly, hyperlinked to its implementation and its test.
+- [Trap registry](../trap-registry.md): every planted defect in the case data, the mechanism that catches it, and the test that proves it, plus the defects a second-pass audit of the rewrite itself found and fixed.
 - [Components guide](../components.md): every script and tool explained for both non-technical readers and engineers.
 - [Scale architecture](../scale-architecture.md): what gets built when volume, integration, or interactivity demand it, and what triggers each addition.
 - [ADR index](../adr/): the full decision record, one per correction.

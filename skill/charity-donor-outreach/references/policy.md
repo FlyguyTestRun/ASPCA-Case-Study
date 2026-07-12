@@ -62,6 +62,10 @@ The campaign paragraph comes from the approved library below. A language model m
 
 > Year after year, steady support from donors like you is what allows us to plan rescues, staff shelters, and answer every call for help. Your continued partnership is the foundation this work is built on.
 
+This paragraph asserts an ongoing pattern of the donor's own giving, which is false for a lapsed donor by definition. For a donor with `status = lapsed`, use this variant instead:
+
+> Our work to plan rescues, staff shelters, and answer every call for help depends on donors who step back in when they are able. We would be glad to have you with us again.
+
 **Capital campaign.** Legacy and permanence. Approved base paragraph:
 
 > We are building spaces that will shelter and heal animals for decades to come. A gift to this campaign is a lasting investment, one that will still be saving lives long after the construction dust has settled.
@@ -84,6 +88,7 @@ The campaign paragraph comes from the approved library below. A language model m
 
 - Lifetime giving totals are mentioned only when lifetime giving is $500 or more. Thanking someone for their "incredible generosity of $75" reads as sarcasm.
 - Every factual claim in a letter must trace to a validated input field or the campaign config.
+- No paragraph may describe a lapsed donor's giving as current or ongoing (for example "steady support" or naming their most recent gift year in the same breath as thanking them for present-tense generosity). The opening paragraph for a lapsed donor states their lifetime giving without naming the specific last-gift year; the specific year, and the fact that time has passed, belongs to the re-engagement ask paragraph, which already carries that message warmly.
 - All donor-derived text is HTML-escaped before rendering.
 
 ## Review gates and escalation

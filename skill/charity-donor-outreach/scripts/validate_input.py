@@ -5,9 +5,10 @@ Usage:
 
 Outputs (in the work directory):
     validated.csv         rows that passed validation, with computed tier and status
+    validated.jsonl       the same rows as one JSON donor object per line
     exceptions.csv        rows that failed, each with specific reasons; no guessing
     corrections.csv       suggested fixes a human can approve and resubmit
-    validation_report.json  run summary for dashboards and CI
+    validation_report.json  run summary for dashboards and CI, stamped with rules_version
 
 Exit codes: 0 = ran to completion (exceptions may exist), 2 = bad config or unreadable input.
 """
@@ -89,12 +90,14 @@ def load_rows(path: Path) -> list[dict]:
 
 
 def validate_rows(
-    raw_rows: list[dict], config: dict
+    raw_rows: list[dict], config: dict, donor_schema: dict | None = None
 ) -> tuple[list[dict], list[dict], list[dict]]:
     as_of_year = config["_as_of"].year
     validated: list[dict] = []
     exceptions: list[dict] = []
     corrections: list[dict] = []
+    id_to_row_numbers: dict[str, list[int]] = {}
+    validated_row_numbers: list[int] = []
 
     name_counts = Counter(
         (row.get("donor_name") or "").strip().lower() for row in raw_rows
@@ -121,6 +124,12 @@ def validate_rows(
             errors.append("donor_name is missing")
         elif name_counts[name.lower()] > 1:
             errors.append("duplicate donor_name; name is the join key, resolve in the source system")
+
+        if donor_schema is not None:
+            # Structural layer, checked before any business rule: a
+            # malformed file fails here, on shape, before the system ever
+            # reasons about a donor's giving. See references/donor.schema.json.
+            errors.extend(rules.validate_donor_row(row, donor_schema))
 
         gifts: list[tuple[int, float]] = []
         try:
@@ -216,8 +225,11 @@ def validate_rows(
             continue
 
         first_name, last_name = rules.split_name(name)
+        donor_id = rules.slugify(name)
+        id_to_row_numbers.setdefault(donor_id, []).append(index)
+        validated_row_numbers.append(index)
         validated.append({
-            "donor_id": rules.slugify(name),
+            "donor_id": donor_id,
             "donor_name": name,
             "title": (row.get("title") or "").strip(),
             "first_name": first_name,
@@ -234,6 +246,38 @@ def validate_rows(
             "volunteer": "Yes" if volunteer else "No",
             "warnings": " | ".join(warnings),
         })
+
+    # Two distinct donor names can slugify to the same donor_id (for example
+    # "Jean-Paul Ostrowski" and "Jean Paul Ostrowski"). Downstream, donor_id
+    # is the letter filename and the manifest join key, so a collision would
+    # let one donor's letter silently overwrite another's. The exact-name
+    # duplicate check above cannot catch this because the names differ.
+    collided_ids = {
+        donor_id for donor_id, numbers in id_to_row_numbers.items() if len(numbers) > 1
+    }
+    if collided_ids:
+        kept: list[dict] = []
+        for row, row_number in zip(validated, validated_row_numbers):
+            donor_id = row["donor_id"]
+            if donor_id not in collided_ids:
+                kept.append(row)
+                continue
+            other_rows = [n for n in id_to_row_numbers[donor_id] if n != row_number]
+            exceptions.append({
+                "row_number": row_number,
+                "donor_name": row["donor_name"],
+                "errors": (
+                    f"donor_id {donor_id!r} is also produced by row(s) "
+                    f"{', '.join(str(n) for n in other_rows)}; distinct donors "
+                    "must not share a letter identifier"
+                ),
+                "suggested_correction": (
+                    "resolve in the source system with a stable donor ID; "
+                    "names alone are not a unique enough join key at this volume"
+                ),
+                "disposition": "excluded from letter generation until a person approves a fix",
+            })
+        validated = kept
 
     return validated, exceptions, corrections
 
@@ -262,7 +306,10 @@ def run(input_path: Path, config_path: Path, workdir: Path) -> dict:
         print(f"INPUT ERROR: {exc}", file=sys.stderr)
         raise SystemExit(2)
 
-    validated, exceptions, corrections = validate_rows(raw_rows, config)
+    schema_path = Path(__file__).resolve().parent.parent / "references" / "donor.schema.json"
+    donor_schema = json.loads(schema_path.read_text(encoding="utf-8")) if schema_path.exists() else None
+
+    validated, exceptions, corrections = validate_rows(raw_rows, config, donor_schema)
 
     validated_fields = [
         "donor_id", "donor_name", "title", "first_name", "last_name",
@@ -278,10 +325,18 @@ def run(input_path: Path, config_path: Path, workdir: Path) -> dict:
         workdir / "corrections.csv", corrections,
         ["row_number", "donor_name", "field", "current_value", "suggested_value", "reason"],
     )
+    # Structured JSON alongside the CSV: validated.csv stays the Excel-editable
+    # working file fundraising staff open directly, and validated.jsonl is the
+    # same records as one JSON donor object per line, the shape every later
+    # stage and any external system integration actually consumes.
+    (workdir / "validated.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in validated), encoding="utf-8"
+    )
 
     warning_rows = [row for row in validated if row["warnings"]]
     report = {
         "run_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "rules_version": rules.RULES_VERSION,
         "input_file": str(input_path),
         "as_of_date": str(config.get("as_of_date")),
         "campaign_type": config.get("campaign_type"),

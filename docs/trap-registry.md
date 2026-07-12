@@ -21,3 +21,15 @@ Every defect planted in the case study's example data, where it hides, how the p
 | 13 | Skill trigger fires on any mention of money, email, events, or reports | Original SKILL.md description | Narrow description with explicit non-triggers | Description review | [ADR 0010](adr/0010-narrow-trigger-description.md) |
 
 Traps 1 through 6 live in the data and are caught at run time on every file, not just this one. Traps 7 through 13 lived in the instructions and are now structurally impossible, with tests standing guard against their return.
+
+## Defects the rewrite introduced, found by auditing the rewrite itself
+
+The same discipline applied to the original skill was turned on this repository before submission. Two independent second-pass audits found defects the first pass's own tests had not caught, exactly the class of silent, scale-triggered failure this whole project exists to eliminate, just one layer further down.
+
+| # | Defect | How it was found | How it is caught | Evidence | Decision record |
+|---|--------|-------------------|-------------------|----------|-----------------|
+| 14 | Two different donors ("Jean-Paul Ostrowski" and "Jean Paul Ostrowski") can slugify to the same `donor_id`, which is also the letter filename; one letter could silently overwrite the other's | Second-pass architectural audit of the pipeline, not present in the 50-row fixture | Every validated `donor_id` checked for collisions after the per-row pass; any colliding group held to exceptions, naming the row numbers, none written to `validated.csv` | `test_donor_id_collision_is_caught_not_overwritten` | [ADR 0022](adr/0022-donor-id-collisions-and-stale-output.md) |
+| 15 | `output/letters/` was never cleared between runs; a donor dropped from a later run left a stale HTML file with no manifest row pointing to it | Same audit | `generate_letters.py` clears `output/letters/*.html` at the start of every run | `test_generate_letters_clears_stale_output` | [ADR 0022](adr/0022-donor-id-collisions-and-stale-output.md) |
+| 16 | The annual fund campaign paragraph told a donor lapsed five years that his support had been "steady," a factual claim his own record contradicts; the opening paragraph also named a lapsed donor's specific last-gift year in the same breath as thanking them for present-tense generosity | A letter-quality proofread pass across all four campaign types, not just the committed `emergency_appeal` run | A lapsed-specific annual fund paragraph that describes the mission, not the donor's giving pattern; the opening paragraph no longer names a lapsed donor's specific last-gift year | `test_lapsed_letters_never_claim_current_giving` | [ADR 0023](adr/0023-lapsed-donor-messaging-cannot-claim-current-giving.md) |
+
+Finding these before Doug's team did, by auditing the rewrite as rigorously as the original, is the point. A system that only checks its inputs and never checks itself is not finished being built.
