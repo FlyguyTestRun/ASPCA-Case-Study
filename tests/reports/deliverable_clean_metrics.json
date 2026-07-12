@@ -1,0 +1,33 @@
+{
+  "generated_by": "tests/test_deliverable_logic.py::TestUploadCleanPersistFlow",
+  "source_file": "skill/charity-donor-outreach/assets/sample_donors.csv",
+  "rules_version": "1.1.0",
+  "before_upload": {
+    "crit": 4,
+    "warn": 2,
+    "ok": 44,
+    "mandatory": 5,
+    "total": 50
+  },
+  "corrections_applied": 4,
+  "after_corrections": {
+    "crit": 0,
+    "warn": 6,
+    "ok": 44,
+    "mandatory": 5,
+    "total": 50
+  },
+  "after_save_and_restore": {
+    "crit": 0,
+    "warn": 6,
+    "ok": 44,
+    "mandatory": 5,
+    "total": 50
+  },
+  "timings_ms": {
+    "upload_and_validate_ms": 4,
+    "apply_corrections_ms": 0,
+    "save_ms": 2,
+    "restore_ms": 0
+  }
+}

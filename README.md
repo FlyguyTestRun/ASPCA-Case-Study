@@ -29,7 +29,7 @@ The original skill's own 50-donor table, transcribed verbatim into [a test fixtu
 | Uncertain records | Indistinguishable from clean ones | Confidence rubric: below 0.70 blocked, below 0.90 held and escalated |
 | Letters | Free-form HTML in chat | Validated against a [schema](skill/charity-donor-outreach/references/letter_schema.json) as data, then rendered to files with a review manifest |
 | Hostile input | Trusted | CSV formula injection neutralized, uploads capped, donor text is data, never instructions |
-| Tests | None | **118**, re-run with the planted traps by [CI](.github/workflows/ci.yml) on every change |
+| Tests | None | **122**, re-run with the planted traps by [CI](.github/workflows/ci.yml) on every change |
 
 Full analysis: the [design review](docs/design-review/README.md) examines the original problem by problem with validity verdicts, and the [trap registry](docs/trap-registry.md) maps every planted defect to the mechanism that catches it and the test that proves it.
 
@@ -112,7 +112,7 @@ A completed run is committed in [output/](output/) as evidence: the [review mani
 
 ## Standalone review artifact
 
-[deliverable/donor-data-review.html](deliverable/donor-data-review.html) opens in any browser, no install, no server, no network. It leads with a guided, under-two-minute narrated walkthrough, then states the verified result, diagrams the pipeline, and lists all 50 donors in a searchable, editable table: correct a flagged field and the same tier and date logic the Python validator runs re-checks it instantly, in the browser. Export produces a corrected CSV. The embedded dataset is built from the real pipeline, never hand-typed, and both the page's validation logic and its walkthrough script are pinned against the Python output by [tests/test_deliverable_logic.py](tests/test_deliverable_logic.py). Details, the walkthrough design, and rebuild instructions: [deliverable/README.md](deliverable/README.md); design record: [ADR 0021](docs/adr/0021-standalone-review-artifact.md).
+[deliverable/donor-data-review.html](deliverable/donor-data-review.html) opens in any browser, no install, no server, no network. It leads with a guided, under-two-minute narrated walkthrough, then states the verified result, diagrams the pipeline, and lists all 50 donors in a searchable, editable table: correct a flagged field and the same tier and date logic the Python validator runs re-checks it instantly, in the browser, alongside the same review conditions (mandatory, recommended, routed to personal outreach) the pipeline enforces downstream. It also accepts an upload of the case study's own unedited file, or any file in the same shape, applies suggested corrections at a click, keeps the cleaned result in the browser across a reload, and exports a cleaned file in exactly the shape the pipeline reads next. The embedded dataset is built from the real pipeline, never hand-typed, and the page's validation, upload, correction, and persistence logic are all pinned against the Python output by [tests/test_deliverable_logic.py](tests/test_deliverable_logic.py). Details and rebuild instructions: [deliverable/README.md](deliverable/README.md); design records: [ADR 0021](docs/adr/0021-standalone-review-artifact.md), [ADR 0029](docs/adr/0029-browser-side-upload-clean-and-persist.md).
 
 ## Requirements checklist
 
@@ -127,7 +127,7 @@ A completed run is committed in [output/](output/) as evidence: the [review mani
 | [Requirements checklist](docs/requirements-checklist.md) | Every production-readiness control, named, hyperlinked to its implementation and its test |
 | [Design review](docs/design-review/README.md) | The original skill examined problem by problem, each with a validity verdict, the fix, and what changes at scale |
 | [Components guide](docs/components.md) | Every script, reference file, and interface explained for both non-technical readers and engineers |
-| [Decision records](docs/adr/) | 28 ADRs: one per correction, each with the problem, the decision, and the forward impact |
+| [Decision records](docs/adr/) | 29 ADRs: one per correction, each with the problem, the decision, and the forward impact |
 | [Decision history](docs/decision-log/) | ADR-style entries the running system writes for itself: applied corrections, style adoptions, batch sign-offs, each with a named approver |
 | [Trap registry](docs/trap-registry.md) | Every planted defect: where it hides, how it is caught, the test that proves it |
 | [Scale architecture](docs/scale-architecture.md) | What gets built when volume demands it, and the trigger for each addition |

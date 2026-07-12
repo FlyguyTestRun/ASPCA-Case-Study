@@ -19,11 +19,25 @@ by anyone regardless of their technical setup.
 - Lists every donor in a searchable, filterable, sortable table. Any
   highlighted cell (stated tier, largest gift, last gift year) is editable
   in place, and the tier and status logic re-runs live in the browser,
-  mirroring the Python validator exactly.
-- Exports a corrected CSV a data steward can hand back to the source system.
+  mirroring the Python validator exactly. A Review column shows the same
+  letter-eligibility conditions the pipeline enforces downstream: blocked
+  pending correction, routed to personal outreach, mandatory or recommended
+  review, or clear for an automated letter.
+- Accepts an upload of the case study's own unedited donor file, or any file
+  in the same shape, and runs it through the same checks: "Apply suggested
+  corrections" approves every held mismatch at once, the way
+  `apply_corrections.py` does on the command line. "Save cleaned dataset"
+  keeps the corrected result in the browser (`localStorage`) so it survives
+  a reload; "Restore saved dataset" brings it back on a later visit.
+- Exports a cleaned CSV in the exact shape `validate_input.py` reads, so it
+  can be handed straight back to the real pipeline, with no remapping,
+  before `calculate_ask.py` and `generate_letters.py` run. Ask amounts and
+  letter text are still computed nowhere but Python; see "Why a second
+  implementation" below for why the browser stops at tier and date logic.
 
-Nothing in the page sends data anywhere. It reads the embedded dataset,
-computes in the browser, and writes a download to the local machine.
+Nothing in the page sends data anywhere. It reads the embedded dataset (or
+an uploaded file), computes and stores in the browser, and writes a
+download to the local machine. Design record: [ADR 0029](../docs/adr/0029-browser-side-upload-clean-and-persist.md).
 
 ## The guided walkthrough
 

@@ -218,6 +218,17 @@
   }
   .toolbar input[type="search"] { min-width: 220px; flex: 1 1 220px; }
   .toolbar .spacer { flex: 1 1 auto; }
+  .toolbar input[type="file"] {
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    max-width: 220px;
+  }
+  #cleanStatus {
+    font-size: 0.82rem;
+    min-height: 1.2em;
+    margin: -0.6rem 0 1rem;
+  }
   button {
     font-family: var(--font-body);
     font-size: 0.85rem;
@@ -581,10 +592,10 @@
   <div class="wrap">
     <h2>Review or correct the dataset</h2>
     <p class="section-note">
-      Fifty records, the full case-study file. Search by name, filter by
-      status, or edit any highlighted cell directly; edits re-run the same
-      tier and date logic the Python pipeline uses. Nothing here is sent
-      anywhere; use the export to carry corrections back to the source file.
+      Fifty records, the full case-study file, loaded below by default. Search
+      by name, filter by status, or edit any highlighted cell directly; edits
+      re-run the same tier and date logic the Python pipeline uses. Nothing
+      here is sent anywhere.
     </p>
 
     <div class="toolbar">
@@ -597,8 +608,25 @@
       </select>
       <div class="spacer"></div>
       <button class="ghost" id="resetBtn" type="button">Reset edits</button>
-      <button id="exportBtn" type="button">Download corrected CSV</button>
+      <button id="exportBtn" type="button">Download cleaned CSV</button>
     </div>
+
+    <p class="section-note">
+      Upload the case study's own unedited donor file, or any file in the
+      same shape, to validate and clean it here before it goes back through
+      the pipeline. A mismatched tier or a status the date policy contradicts
+      is held until you approve the fix, one cell at a time or all at once.
+    </p>
+
+    <div class="toolbar" id="cleanToolbar">
+      <input type="file" id="csvUpload" accept=".csv" aria-label="Upload raw donor CSV" />
+      <button class="ghost" id="applyCorrectionsBtn" type="button">Apply suggested corrections</button>
+      <div class="spacer"></div>
+      <button class="ghost" id="saveCleanedBtn" type="button">Save cleaned dataset</button>
+      <button class="ghost" id="restoreCleanedBtn" type="button" hidden>Restore saved dataset</button>
+      <button class="ghost" id="clearSavedBtn" type="button" hidden>Clear saved data</button>
+    </div>
+    <p id="cleanStatus" role="status" aria-live="polite"></p>
 
     <div class="table-scroll">
       <table id="donorTable">
@@ -615,6 +643,7 @@
             <th>Last gift yr</th>
             <th>Ask</th>
             <th>Confidence</th>
+            <th>Review</th>
             <th>Flag</th>
           </tr>
         </thead>
@@ -673,30 +702,41 @@ __DATASET_JSON__
     return "$" + Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
   }
 
+  // Builds the working row shape from either the embedded, pipeline-built
+  // dataset (fields like stated_tier, ask_amount, confidence) or a freshly
+  // uploaded raw CSV in the original skill's own shape (donor_name, title,
+  // tier, region, gifts, largest_gift, lifetime_total, last_gift_year,
+  // volunteer). Both feed the same tier/date/review logic below.
+  function buildDonorsFromRecords(records) {
+    return records.map(function (d, i) {
+      var gifts = parseGifts(d.gifts);
+      var largest = gifts.length ? Math.max.apply(null, gifts.map(function (g) { return g[1]; })) : parseFloat(d.largest_gift) || 0;
+      var lifetime = gifts.length ? gifts.reduce(function (s, g) { return s + g[1]; }, 0) : parseFloat(d.lifetime_total) || 0;
+      var lastYear = gifts.length ? Math.max.apply(null, gifts.map(function (g) { return g[0]; })) : parseInt(d.last_gift_year, 10) || AS_OF_YEAR;
+      var statedTier = d.stated_tier !== undefined && d.stated_tier !== null ? d.stated_tier : (d.tier || "");
+      return {
+        id: i,
+        donor_name: d.donor_name,
+        title: d.title || "",
+        region: d.region,
+        stated_tier: statedTier,
+        volunteer: d.volunteer,
+        gifts: d.gifts,
+        largest_gift: largest,
+        lifetime_total: lifetime,
+        last_gift_year: lastYear,
+        ask_amount: d.ask_amount || "",
+        ask_trace: d.ask_trace || (d.errors ? "Held: " + d.errors : ""),
+        original_confidence: d.confidence || "",
+        original_band: d.confidence_band || (d.status === "exception" ? "fail" : ""),
+        edited: !!d.edited,
+      };
+    });
+  }
+
   // Working copy: edits recompute tier/status live, exactly mirroring
   // donor_rules.compute_tier / is_lapsed in the Python pipeline.
-  var donors = RAW.map(function (d, i) {
-    var gifts = parseGifts(d.gifts);
-    var largest = gifts.length ? Math.max.apply(null, gifts.map(function (g) { return g[1]; })) : parseFloat(d.largest_gift) || 0;
-    var lifetime = gifts.length ? gifts.reduce(function (s, g) { return s + g[1]; }, 0) : parseFloat(d.lifetime_total) || 0;
-    var lastYear = gifts.length ? Math.max.apply(null, gifts.map(function (g) { return g[0]; })) : parseInt(d.last_gift_year, 10) || AS_OF_YEAR;
-    return {
-      id: i,
-      donor_name: d.donor_name,
-      region: d.region,
-      stated_tier: d.stated_tier,
-      volunteer: d.volunteer,
-      gifts: d.gifts,
-      largest_gift: largest,
-      lifetime_total: lifetime,
-      last_gift_year: lastYear,
-      ask_amount: d.ask_amount || "",
-      ask_trace: d.ask_trace || (d.errors ? "Held: " + d.errors : ""),
-      original_confidence: d.confidence || "",
-      original_band: d.confidence_band || (d.status === "exception" ? "fail" : ""),
-      edited: false,
-    };
-  });
+  var donors = buildDonorsFromRecords(RAW);
 
   function deriveState(row) {
     // Mirrors validate_input.py exactly: "Lapsed" in the tier column is a
@@ -731,6 +771,44 @@ __DATASET_JSON__
     return { computedTier: computedTier, lapsed: lapsed, flagLevel: flagLevel, flagText: flagText };
   }
 
+  // The letter conditions the original skill never checked: whether a
+  // record is even eligible for an automated letter, and whether a person
+  // has to sign off first. Mirrors donor_rules.confidence_score,
+  // confidence_band, and review_level exactly, using the one validate-stage
+  // warning this page can compute without a campaign config (an active tier
+  // that is lapsed by date). A stated-tier mismatch blocks the record
+  // outright, same as validate_input.py excluding it from validated.csv.
+  function deriveReview(row, state) {
+    if (state.flagLevel === "crit") {
+      return { band: "blocked", level: "blocked", text: "Blocked: needs correction before it validates" };
+    }
+    var majorTiers = ["Platinum", "Gold"];
+    var lapsedMajor = state.lapsed && majorTiers.indexOf(row.stated_tier) !== -1;
+    var reviewReasons = lapsedMajor ? ["lapsed major donor: no automated letter"] : [];
+    var financialTiers = ["Platinum", "Gold", "Silver", "Bronze"];
+    var warnings = (state.lapsed && financialTiers.indexOf(row.stated_tier) !== -1) ? 1 : 0;
+    var confidence = Math.max(1 - 0.10 * warnings, 0);
+    var band = confidence < 0.70 ? "fail" : confidence < 0.90 ? "report" : "pass";
+    var level;
+    if (row.stated_tier === "Platinum" || reviewReasons.length || confidence < 0.90) level = "mandatory";
+    else if (confidence < 1.0) level = "recommended";
+    else level = "none";
+
+    var text;
+    if (reviewReasons.length) text = "No automated letter: route to personal outreach";
+    else if (level === "mandatory") text = row.stated_tier === "Platinum" ? "Platinum: always reviewed" : "Confidence " + confidence.toFixed(2) + ": mandatory review";
+    else if (level === "recommended") text = "Confidence " + confidence.toFixed(2) + ": recommended review";
+    else text = "No review required";
+
+    return { band: band, level: level, text: text, confidence: confidence };
+  }
+
+  function reviewPillLevel(level) {
+    if (level === "blocked") return "muted";
+    if (level === "none") return "ok";
+    return "warn";
+  }
+
   var tbody = document.getElementById("tableBody");
   var emptyState = document.getElementById("emptyState");
   var statRow = document.getElementById("statRow");
@@ -741,18 +819,20 @@ __DATASET_JSON__
   }
 
   function renderStats() {
-    var crit = 0, warn = 0, ok = 0;
+    var crit = 0, warn = 0, ok = 0, mandatory = 0;
     donors.forEach(function (row) {
       var s = deriveState(row);
       if (s.flagLevel === "crit") crit++;
       else if (s.flagLevel === "warn") warn++;
       else ok++;
+      if (deriveReview(row, s).level === "mandatory") mandatory++;
     });
     statRow.innerHTML =
       '<div class="stat"><span class="n">' + donors.length + '</span><span class="l">Total records</span></div>' +
       '<div class="stat ok"><span class="n">' + ok + '</span><span class="l">Clean</span></div>' +
       '<div class="stat warn"><span class="n">' + warn + '</span><span class="l">Held for review</span></div>' +
-      '<div class="stat crit"><span class="n">' + crit + '</span><span class="l">Needs correction</span></div>';
+      '<div class="stat crit"><span class="n">' + crit + '</span><span class="l">Needs correction</span></div>' +
+      '<div class="stat warn"><span class="n">' + mandatory + '</span><span class="l">Mandatory letter review</span></div>';
   }
 
   function editedCount() {
@@ -771,6 +851,7 @@ __DATASET_JSON__
       if (filter !== "all" && state.flagLevel !== filter) return;
       shown++;
 
+      var review = deriveReview(row, state);
       var tr = document.createElement("tr");
       if (row.edited) tr.className = "is-edited";
       tr.innerHTML =
@@ -785,6 +866,7 @@ __DATASET_JSON__
         '<td class="num editable" contenteditable="true" data-field="last_gift_year" data-id="' + row.id + '">' + row.last_gift_year + '</td>' +
         '<td class="num">' + (row.ask_amount ? money(row.ask_amount) : "—") + '</td>' +
         '<td class="num">' + (row.original_confidence || "—") + '</td>' +
+        '<td>' + pill(reviewPillLevel(review.level), review.text) + '</td>' +
         '<td>' + pill(state.flagLevel, state.flagText) + '</td>';
       tbody.appendChild(tr);
 
@@ -792,7 +874,7 @@ __DATASET_JSON__
       detail.className = "detail-row hidden";
       detail.dataset.detailFor = row.id;
       var td = document.createElement("td");
-      td.colSpan = 12;
+      td.colSpan = 13;
       td.textContent = row.ask_trace || "No calculation trace: this record was held before ask calculation.";
       detail.appendChild(td);
       tbody.appendChild(detail);
@@ -837,32 +919,24 @@ __DATASET_JSON__
   document.getElementById("statusFilter").addEventListener("change", renderRows);
 
   document.getElementById("resetBtn").addEventListener("click", function () {
-    donors = RAW.map(function (d, i) {
-      var gifts = parseGifts(d.gifts);
-      var largest = gifts.length ? Math.max.apply(null, gifts.map(function (g) { return g[1]; })) : parseFloat(d.largest_gift) || 0;
-      var lifetime = gifts.length ? gifts.reduce(function (s, g) { return s + g[1]; }, 0) : parseFloat(d.lifetime_total) || 0;
-      var lastYear = gifts.length ? Math.max.apply(null, gifts.map(function (g) { return g[0]; })) : parseInt(d.last_gift_year, 10) || AS_OF_YEAR;
-      return {
-        id: i, donor_name: d.donor_name, region: d.region, stated_tier: d.stated_tier,
-        volunteer: d.volunteer, gifts: d.gifts, largest_gift: largest, lifetime_total: lifetime,
-        last_gift_year: lastYear, ask_amount: d.ask_amount || "",
-        ask_trace: d.ask_trace || (d.errors ? "Held: " + d.errors : ""),
-        original_confidence: d.confidence || "", original_band: d.confidence_band || (d.status === "exception" ? "fail" : ""),
-        edited: false,
-      };
-    });
+    donors = buildDonorsFromRecords(RAW);
     renderStats();
     renderRows();
+    setCleanStatus("Reset to the built-in fifty-donor dataset.");
   });
 
+  // Exports exactly the shape validate_input.py reads as raw input
+  // (donor_name, title, tier, region, gifts, largest_gift, lifetime_total,
+  // last_gift_year, volunteer), with the current, possibly-corrected stated
+  // tier, so this file can be handed straight back to the pipeline with no
+  // remapping before calculate_ask.py and generate_letters.py run.
   document.getElementById("exportBtn").addEventListener("click", function () {
-    var header = ["donor_name", "region", "tier", "largest_gift", "lifetime_total", "last_gift_year", "volunteer", "gifts"];
+    var header = ["donor_name", "title", "tier", "region", "gifts", "largest_gift", "lifetime_total", "last_gift_year", "volunteer"];
     var lines = [header.join(",")];
     donors.forEach(function (row) {
-      var state = deriveState(row);
       var cells = [
-        row.donor_name, row.region, state.computedTier, row.largest_gift.toFixed(2),
-        row.lifetime_total.toFixed(2), row.last_gift_year, row.volunteer, row.gifts,
+        row.donor_name, row.title || "", row.stated_tier, row.region, row.gifts,
+        row.largest_gift.toFixed(2), row.lifetime_total.toFixed(2), row.last_gift_year, row.volunteer,
       ].map(function (v) {
         v = String(v);
         return /[",]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
@@ -872,11 +946,171 @@ __DATASET_JSON__
     var blob = new Blob([lines.join("\n")], { type: "text/csv" });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
-    a.href = url; a.download = "donors_corrected.csv";
+    a.href = url; a.download = "donors_cleaned.csv";
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
   });
 
+  function setCleanStatus(text) {
+    var el = document.getElementById("cleanStatus");
+    if (el) el.textContent = text;
+  }
+
+  // A small, dependency-free CSV parser matching the shape validate_input.py
+  // accepts: quoted fields, embedded commas and quotes, header lowercased
+  // and trimmed exactly like load_rows() does on the Python side.
+  function parseCsv(text) {
+    var rows = [], field = "", row = [], inQuotes = false, i = 0;
+    var n = text.length;
+    function pushField() { row.push(field); field = ""; }
+    function pushRow() { rows.push(row); row = []; }
+    while (i < n) {
+      var c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+          inQuotes = false; i++; continue;
+        }
+        field += c; i++; continue;
+      }
+      if (c === '"') { inQuotes = true; i++; continue; }
+      if (c === ",") { pushField(); i++; continue; }
+      if (c === "\r") { i++; continue; }
+      if (c === "\n") { pushField(); pushRow(); i++; continue; }
+      field += c; i++;
+    }
+    if (field.length || row.length) { pushField(); pushRow(); }
+    rows = rows.filter(function (r) { return r.length > 1 || (r.length === 1 && r[0] !== ""); });
+    if (!rows.length) return [];
+    var header = rows[0].map(function (h) { return h.trim().toLowerCase(); });
+    return rows.slice(1).map(function (r) {
+      var record = {};
+      header.forEach(function (key, idx) { record[key] = r[idx] !== undefined ? r[idx] : ""; });
+      return record;
+    });
+  }
+
+  // Pure: parses raw CSV text into the working row shape. Kept separate
+  // from the file-input event wiring so it can be exercised directly
+  // (headless, no FileReader) against the case study's own unedited file.
+  function loadDonorsFromCsvText(text) {
+    return buildDonorsFromRecords(parseCsv(text));
+  }
+
+  // Approves every suggested tier correction at once, exactly what
+  // apply_corrections.py does when a person runs it on the full
+  // corrections file: set the stated field to the computed value. Nothing
+  // is applied until this is called; a mismatch sits blocked until then.
+  function applySuggestedCorrections() {
+    var applied = 0;
+    donors.forEach(function (row) {
+      var state = deriveState(row);
+      if (state.flagLevel !== "crit") return;
+      row.stated_tier = state.computedTier;
+      row.edited = true;
+      applied++;
+    });
+    return applied;
+  }
+
+  var STORAGE_KEY = "aspca-donor-review:cleaned-dataset-v1";
+
+  function serializeDonors() {
+    return donors.map(function (d) {
+      return {
+        donor_name: d.donor_name, title: d.title, region: d.region,
+        stated_tier: d.stated_tier, volunteer: d.volunteer, gifts: d.gifts,
+        largest_gift: d.largest_gift, lifetime_total: d.lifetime_total,
+        last_gift_year: d.last_gift_year, ask_amount: d.ask_amount,
+        ask_trace: d.ask_trace, confidence: d.original_confidence,
+        confidence_band: d.original_band, edited: d.edited,
+      };
+    });
+  }
+
+  function loadSavedPayload() {
+    var raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch (err) { return null; }
+  }
+
+  // Persists the current, corrected working set in this browser so it
+  // survives a reload and carries forward to the next visit, before any
+  // export back into the pipeline that generates letters.
+  function saveCleanedDataset() {
+    var payload = { savedAt: new Date().toISOString(), donors: serializeDonors() };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    updateCleanControlsVisibility();
+    return payload;
+  }
+
+  function restoreCleanedDataset() {
+    var payload = loadSavedPayload();
+    if (!payload || !payload.donors || !payload.donors.length) {
+      setCleanStatus("No saved dataset found in this browser.");
+      return null;
+    }
+    donors = buildDonorsFromRecords(payload.donors);
+    renderStats();
+    renderRows();
+    setCleanStatus("Restored " + payload.donors.length + " records saved " + payload.savedAt + ".");
+    return payload;
+  }
+
+  function clearSavedDataset() {
+    window.localStorage.removeItem(STORAGE_KEY);
+    updateCleanControlsVisibility();
+    setCleanStatus("Saved dataset cleared from this browser.");
+  }
+
+  function updateCleanControlsVisibility() {
+    var payload = loadSavedPayload();
+    var has = !!(payload && payload.donors && payload.donors.length);
+    var restoreBtn = document.getElementById("restoreCleanedBtn");
+    var clearBtn = document.getElementById("clearSavedBtn");
+    restoreBtn.hidden = !has;
+    clearBtn.hidden = !has;
+  }
+
+  document.getElementById("csvUpload").addEventListener("change", function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var next = loadDonorsFromCsvText(String(reader.result));
+        if (!next.length) throw new Error("no donor rows found in the file");
+        donors = next;
+        renderStats();
+        renderRows();
+        setCleanStatus(next.length + " raw record" + (next.length === 1 ? "" : "s") +
+          " loaded from " + file.name + ". Review flagged rows below, or apply suggested corrections.");
+      } catch (err) {
+        setCleanStatus("Could not read " + file.name + ": " + err.message);
+      }
+    };
+    reader.onerror = function () { setCleanStatus("Could not read " + file.name + "."); };
+    reader.readAsText(file);
+  });
+
+  document.getElementById("applyCorrectionsBtn").addEventListener("click", function () {
+    var applied = applySuggestedCorrections();
+    renderStats();
+    renderRows();
+    setCleanStatus(applied
+      ? "Applied " + applied + " suggested correction" + (applied === 1 ? "" : "s") + ". Edited rows are held one more pass for a final check."
+      : "No corrections were needed.");
+  });
+
+  document.getElementById("saveCleanedBtn").addEventListener("click", function () {
+    var payload = saveCleanedDataset();
+    setCleanStatus("Saved " + payload.donors.length + " records to this browser.");
+  });
+
+  document.getElementById("restoreCleanedBtn").addEventListener("click", restoreCleanedDataset);
+  document.getElementById("clearSavedBtn").addEventListener("click", clearSavedDataset);
+
+  updateCleanControlsVisibility();
   renderStats();
   renderRows();
 

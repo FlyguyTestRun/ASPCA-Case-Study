@@ -25,6 +25,7 @@ from pathlib import Path
 import pytest
 
 from conftest import REPO_ROOT
+import donor_rules as rules
 
 DELIVERABLE = REPO_ROOT / "deliverable" / "donor-data-review.html"
 
@@ -90,12 +91,22 @@ _STUB = """
       querySelector: function(){ return null; },
       querySelectorAll: function(){ return []; },
     };
+    function makeStubStorage() {
+      var store = {};
+      return {
+        getItem: function(k){ return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null; },
+        setItem: function(k, v){ store[k] = String(v); },
+        removeItem: function(k){ delete store[k]; },
+        clear: function(){ store = {}; },
+      };
+    }
     var window = {
       matchMedia: function(){ return { matches: false }; },
       setTimeout: function(){ return 0; },
       clearTimeout: function(){},
       addEventListener: function(){},
       removeEventListener: function(){},
+      localStorage: makeStubStorage(),
     };
     function requestAnimationFrame() {}
 """
@@ -161,6 +172,143 @@ def run_tour_metadata_in_node(html: str) -> dict:
         result = subprocess.run(["node", str(script_path)], capture_output=True, text=True)
     assert result.returncode == 0, f"Node execution failed:\n{result.stderr}"
     return json.loads(result.stdout.strip())
+
+
+REPORTS_DIR = REPO_ROOT / "tests" / "reports"
+RAW_FIXTURE = REPO_ROOT / "skill" / "charity-donor-outreach" / "assets" / "sample_donors.csv"
+
+
+def run_upload_clean_persist_flow_in_node(html: str, raw_csv_text: str) -> dict:
+    """Feed the case study's own unedited CSV through the page's upload,
+    correction, and browser-persistence functions inside Node, timing each
+    stage, and return the before/after counts plus a save-then-restore
+    round trip. This is the headless proof that "upload the unedited file,
+    compare it to what the system finds, clean it, and have it persist"
+    actually works, on the real client-side code, not a description of it."""
+    dataset, script_block = extract_dataset_and_script(html)
+    inner = re.search(r"\(function \(\) \{(.*)\}\)\(\);", script_block, re.S).group(1)
+    inner = inner.replace('"use strict";', "")
+    inner = re.sub(
+        r'JSON\.parse\(document\.getElementById\("dataset"\)\.textContent\)',
+        "__RAW__", inner,
+    )
+    harness = (
+        _STUB
+        + "var __RAW__ = " + json.dumps(dataset) + ";\n"
+        + inner
+        + """
+        function summarize() {
+          var crit = 0, warn = 0, ok = 0, mandatory = 0;
+          donors.forEach(function (row) {
+            var s = deriveState(row);
+            if (s.flagLevel === "crit") crit++;
+            else if (s.flagLevel === "warn") warn++;
+            else ok++;
+            if (deriveReview(row, s).level === "mandatory") mandatory++;
+          });
+          return { crit: crit, warn: warn, ok: ok, mandatory: mandatory, total: donors.length };
+        }
+        var timings = {};
+        var rawCsvText = """ + json.dumps(raw_csv_text) + """;
+
+        var t0 = Date.now();
+        donors = loadDonorsFromCsvText(rawCsvText);
+        timings.upload_and_validate_ms = Date.now() - t0;
+        var uploaded = summarize();
+
+        var t1 = Date.now();
+        var applied = applySuggestedCorrections();
+        timings.apply_corrections_ms = Date.now() - t1;
+        var afterCorrections = summarize();
+
+        var t2 = Date.now();
+        var savedPayload = saveCleanedDataset();
+        timings.save_ms = Date.now() - t2;
+
+        donors = buildDonorsFromRecords(__RAW__);  // simulate a fresh session
+
+        var t3 = Date.now();
+        var restored = restoreCleanedDataset();
+        timings.restore_ms = Date.now() - t3;
+        var afterRestore = summarize();
+
+        console.log(JSON.stringify({
+          uploaded: uploaded,
+          applied: applied,
+          afterCorrections: afterCorrections,
+          afterRestore: afterRestore,
+          savedCount: savedPayload.donors.length,
+          restoredCount: restored ? restored.donors.length : 0,
+          timings: timings,
+        }));
+        """
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        script_path = Path(tmp) / "harness.js"
+        script_path.write_text(harness, encoding="utf-8")
+        result = subprocess.run(["node", str(script_path)], capture_output=True, text=True)
+    assert result.returncode == 0, f"Node execution failed:\n{result.stderr}"
+    return json.loads(result.stdout.strip())
+
+
+@pytest.fixture(scope="module")
+def upload_flow():
+    if not DELIVERABLE.exists():
+        pytest.skip("deliverable/donor-data-review.html not built; run build_dataset.py + embed_dataset.py")
+    if not RAW_FIXTURE.exists():
+        pytest.skip("raw fixture not found")
+    html = DELIVERABLE.read_text(encoding="utf-8")
+    raw_csv_text = RAW_FIXTURE.read_text(encoding="utf-8")
+    return run_upload_clean_persist_flow_in_node(html, raw_csv_text)
+
+
+class TestUploadCleanPersistFlow:
+    """Proves the browser deliverable can take the case study's own
+    unedited donor file, find exactly what the Python validator finds,
+    clean it with one action, and keep the cleaned result across a
+    simulated new session, entirely client-side. Ground truth (4 tier
+    mismatches, 2 lapsed-major donors held for personal outreach, 5
+    Platinum donors always under mandatory review) is independently
+    computed straight from donor_rules.py against the same raw file in
+    test_fixture_fidelity.py and the Python pipeline's own committed
+    output; this test does not re-derive it, only checks the browser
+    logic agrees with it."""
+
+    def test_upload_finds_exactly_what_python_finds(self, upload_flow):
+        uploaded = upload_flow["uploaded"]
+        assert (uploaded["crit"], uploaded["warn"], uploaded["ok"], uploaded["total"]) == (4, 2, 44, 50)
+        assert uploaded["mandatory"] == 5
+
+    def test_apply_corrections_clears_every_mismatch(self, upload_flow):
+        assert upload_flow["applied"] == 4
+        after = upload_flow["afterCorrections"]
+        assert after["crit"] == 0
+        assert after["total"] == 50
+        assert after["mandatory"] == 5, "Platinum-always review must not change with a tier fix"
+
+    def test_cleaned_dataset_persists_across_a_simulated_new_session(self, upload_flow):
+        assert upload_flow["savedCount"] == 50
+        assert upload_flow["restoredCount"] == 50
+        restored = upload_flow["afterRestore"]
+        assert restored["crit"] == 0, "a restored session must not resurrect the corrected mismatches"
+        assert restored == upload_flow["afterCorrections"]
+
+    def test_metrics_are_captured_and_reported(self, upload_flow):
+        report_path = REPORTS_DIR / "deliverable_clean_metrics.json"
+        REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+        report = {
+            "generated_by": "tests/test_deliverable_logic.py::TestUploadCleanPersistFlow",
+            "source_file": "skill/charity-donor-outreach/assets/sample_donors.csv",
+            "rules_version": rules.RULES_VERSION,
+            "before_upload": upload_flow["uploaded"],
+            "corrections_applied": upload_flow["applied"],
+            "after_corrections": upload_flow["afterCorrections"],
+            "after_save_and_restore": upload_flow["afterRestore"],
+            "timings_ms": upload_flow["timings"],
+        }
+        report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+        assert all(v >= 0 for v in upload_flow["timings"].values())
+        assert report_path.exists()
 
 
 @pytest.fixture(scope="module")

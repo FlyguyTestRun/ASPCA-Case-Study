@@ -1,0 +1,21 @@
+# ADR 0029: Upload, clean, and persist a raw donor file inside the standalone deliverable
+
+Status: accepted. Date: 2026-07-12.
+
+## Problem
+
+The standalone deliverable (`deliverable/donor-data-review.html`) could only review the one dataset baked in at build time. A reviewer who wanted to see the redesign catch errors in a different file, or in the case study's own unedited donor table, had no way to load it without the Python pipeline. Editing individual cells already re-ran the tier and date logic live, but there was no one-click way to approve every suggested correction at once, no way to see the letter-eligibility conditions (Platinum-always review, lapsed-major routing, the 0.70/0.90 confidence bands) that the Python pipeline enforces downstream, and no way for a cleaned dataset to survive a page reload.
+
+## Decision
+
+Extend the deliverable's existing client-side logic rather than add a second pipeline:
+
+- **Upload.** A small, dependency-free CSV parser (`parseCsv`) reads a file in the exact shape `validate_input.py` accepts (`donor_name, title, tier, region, gifts, largest_gift, lifetime_total, last_gift_year, volunteer`), lowercasing headers the same way the Python loader does. `buildDonorsFromRecords` was factored out of the three places donor rows used to get constructed (embedded dataset, reset, and now upload) so raw uploads and the pipeline-built dataset produce the same working-row shape.
+- **Compare.** `deriveState` (already existed) recomputes tier and lapsed status from the gift history and flags a mismatch. `deriveReview`, added here, mirrors `donor_rules.confidence_score`, `confidence_band`, and `review_level` from the Python side: a mismatch blocks the record outright (mirroring exclusion from `validated.csv`), a lapsed Platinum or Gold donor is routed to personal outreach with no automated letter, and every other record gets a confidence score, band, and review level, surfaced in a new Review column and a new "Mandatory letter review" stat.
+- **Clean.** `applySuggestedCorrections` approves every held mismatch at once, the same action `apply_corrections.py` performs when a person runs it on the full corrections file: set the stated field to the computed value, nothing applied silently.
+- **Persist.** `saveCleanedDataset` / `restoreCleanedDataset` read and write `window.localStorage`, so a cleaned dataset survives a reload and a new visit, without a server. Restoring is an explicit action, not automatic on page load, so the default page still opens to the deterministic built-in demo.
+- **Export.** The download button was changed to write exactly the raw-input column shape and order `validate_input.py` reads, using the current (possibly corrected) stated tier, so the exported file can be handed straight back into the real pipeline (`validate_input.py` -> `calculate_ask.py` -> `generate_letters.py`) with no remapping, before any letter is generated. Ask amounts and letter content are still computed nowhere but Python: this keeps one implementation of money and language, consistent with the reasoning in [ADR 0021](0021-standalone-review-artifact.md#why-a-second-implementation-of-the-tier-and-date-logic) and `deliverable/README.md`.
+
+## What this changes going forward
+
+A reviewer can now take the case study's own unedited 50-donor file, or any file in the same shape, drop it into the deliverable, see it caught against the same rules the Python pipeline enforces, approve the fixes in one click, and keep the cleaned result across sessions entirely in the browser, before ever exporting back into the stage that generates letters. `tests/test_deliverable_logic.py::TestUploadCleanPersistFlow` runs this whole flow headlessly in Node against the real, unedited fixture and asserts the browser logic finds exactly what the Python validator finds (4 tier mismatches, 2 lapsed-major donors, 5 Platinum donors under mandatory review), that applying corrections clears every mismatch, and that a save-then-restore round trip reproduces the corrected state exactly. The same test writes `tests/reports/deliverable_clean_metrics.json`, a committed, regenerated-on-every-run record of the before/after counts and per-stage timings, for reporting on what this adds and what it costs.
