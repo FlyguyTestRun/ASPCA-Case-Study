@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ASPCA Donor Outreach: Verified Data Review</title>
+<style>
+  :root {
+    --paper: #F1F3F0;
+    --paper-raised: #FFFFFF;
+    --ink: #14211D;
+    --ink-soft: #4B5750;
+    --accent: #0E6B5F;
+    --accent-soft: #DCEAE6;
+    --line: #D8DCD6;
+    --ok: #2E7D46;
+    --ok-soft: #E1EFE4;
+    --warn: #B4740E;
+    --warn-soft: #F5E8D2;
+    --crit: #B23B2E;
+    --crit-soft: #F6DEDA;
+    --radius: 6px;
+    --font-head: ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    --font-body: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #121815;
+      --paper-raised: #182019;
+      --ink: #E7EDE9;
+      --ink-soft: #9FB0A7;
+      --accent: #4FD9C0;
+      --accent-soft: #1B3A34;
+      --line: #26312C;
+      --ok: #4CAF6B;
+      --ok-soft: #1C3324;
+      --warn: #E0A73A;
+      --warn-soft: #3A2F16;
+      --crit: #E06753;
+      --crit-soft: #3B2119;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #121815;
+    --paper-raised: #182019;
+    --ink: #E7EDE9;
+    --ink-soft: #9FB0A7;
+    --accent: #4FD9C0;
+    --accent-soft: #1B3A34;
+    --line: #26312C;
+    --ok: #4CAF6B;
+    --ok-soft: #1C3324;
+    --warn: #E0A73A;
+    --warn-soft: #3A2F16;
+    --crit: #E06753;
+    --crit-soft: #3B2119;
+  }
+  :root[data-theme="light"] {
+    --paper: #F1F3F0;
+    --paper-raised: #FFFFFF;
+    --ink: #14211D;
+    --ink-soft: #4B5750;
+    --accent: #0E6B5F;
+    --accent-soft: #DCEAE6;
+    --line: #D8DCD6;
+    --ok: #2E7D46;
+    --ok-soft: #E1EFE4;
+    --warn: #B4740E;
+    --warn-soft: #F5E8D2;
+    --crit: #B23B2E;
+    --crit-soft: #F6DEDA;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.55;
+    padding: 0 0 4rem;
+  }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 clamp(1rem, 3vw, 2.5rem); }
+
+  /* ---------- masthead ---------- */
+  header.masthead {
+    border-bottom: 1px solid var(--line);
+    padding: 2.75rem 0 2rem;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  h1 {
+    font-family: var(--font-head);
+    font-weight: 500;
+    font-size: clamp(1.7rem, 3vw, 2.35rem);
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 0.4rem 0 0.65rem;
+  }
+  .thesis {
+    max-width: 62ch;
+    color: var(--ink-soft);
+    font-size: 1rem;
+  }
+  .stat-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+  .stat {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0.65rem 1rem;
+    min-width: 8.5rem;
+  }
+  .stat .n {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.5rem;
+    font-weight: 600;
+    display: block;
+  }
+  .stat .l {
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .stat.ok .n { color: var(--ok); }
+  .stat.crit .n { color: var(--crit); }
+  .stat.warn .n { color: var(--warn); }
+
+  /* ---------- section shell ---------- */
+  section { padding: 2.75rem 0; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: none; }
+  h2 {
+    font-family: var(--font-head);
+    font-weight: 500;
+    font-size: 1.4rem;
+    margin: 0 0 0.4rem;
+  }
+  .section-note {
+    color: var(--ink-soft);
+    max-width: 68ch;
+    margin: 0 0 1.5rem;
+  }
+
+  /* ---------- DAG ---------- */
+  .dag-scroll { overflow-x: auto; }
+  .dag-scroll svg { display: block; min-width: 760px; }
+  .dag-node rect { fill: var(--paper-raised); stroke: var(--line); stroke-width: 1.2; }
+  .dag-node.stage rect { stroke: var(--accent); stroke-width: 1.6; }
+  .dag-node text.title { font-family: var(--font-body); font-weight: 600; font-size: 12.5px; fill: var(--ink); }
+  .dag-node text.sub { font-family: var(--font-mono); font-size: 10.5px; fill: var(--ink-soft); }
+  .dag-arrow { stroke: var(--ink-soft); stroke-width: 1.4; fill: none; }
+  .dag-arrow-head { fill: var(--ink-soft); }
+  .dag-annot {
+    font-family: var(--font-body);
+    font-size: 11px;
+    fill: var(--crit);
+  }
+  .dag-legend { display: flex; gap: 1.5rem; margin-top: 0.9rem; flex-wrap: wrap; }
+  .dag-legend span { font-size: 0.8rem; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 0.4rem; }
+  .dag-legend i { width: 0.7rem; height: 0.7rem; border-radius: 2px; display: inline-block; }
+
+  .why-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .why-card {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 0.9rem 1rem;
+  }
+  .why-card h3 {
+    margin: 0 0 0.3rem;
+    font-size: 0.92rem;
+    font-family: var(--font-body);
+    font-weight: 600;
+  }
+  .why-card p { margin: 0; font-size: 0.85rem; color: var(--ink-soft); }
+
+  /* ---------- table toolbar ---------- */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  .toolbar input[type="search"], .toolbar select {
+    font-family: var(--font-body);
+    font-size: 0.88rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--paper-raised);
+    color: var(--ink);
+  }
+  .toolbar input[type="search"] { min-width: 220px; flex: 1 1 220px; }
+  .toolbar .spacer { flex: 1 1 auto; }
+  button {
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.5rem 0.9rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+  }
+  button.ghost {
+    background: transparent;
+    color: var(--accent);
+  }
+  button:hover { filter: brightness(1.06); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .table-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--paper-raised);
+  }
+  table { border-collapse: collapse; width: 100%; min-width: 980px; }
+  thead th {
+    position: sticky; top: 0;
+    background: var(--paper-raised);
+    text-align: left;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-soft);
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.87rem;
+    vertical-align: top;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr.is-edited { background: color-mix(in srgb, var(--accent-soft) 55%, transparent); }
+  td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+  td.editable { cursor: text; }
+  td.editable:hover { outline: 1px dashed var(--line); outline-offset: -3px; }
+  td.editable:focus { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--accent-soft); }
+
+  .pill {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .pill.crit { background: var(--crit-soft); color: var(--crit); }
+  .pill.muted { background: var(--line); color: var(--ink-soft); }
+
+  .row-detail-btn {
+    font-family: var(--font-mono);
+    background: none; border: none; color: var(--accent);
+    font-size: 0.78rem; padding: 0; cursor: pointer; font-weight: 600;
+  }
+  tr.detail-row td {
+    background: var(--accent-soft);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    white-space: pre-wrap;
+  }
+  tr.detail-row.hidden { display: none; }
+
+  .empty-state {
+    padding: 2rem; text-align: center; color: var(--ink-soft); font-size: 0.9rem;
+  }
+
+  footer.page-footer {
+    padding: 2.5rem 0 0;
+    color: var(--ink-soft);
+    font-size: 0.82rem;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .theme-toggle {
+    position: fixed;
+    top: 1rem; right: 1rem;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle color theme">Theme</button>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">JLL PDS Screening, ASPCA Case Study</div>
+    <h1>Donor outreach data, verified and ready for review</h1>
+    <p class="thesis">
+      Every record below passed through the same deterministic validation the
+      production pipeline runs: tiers recomputed from actual giving history,
+      dates checked against an explicit reference point, totals tied out.
+      Four records were held for correction, all four proven back to the
+      source file. Edit any cell to see the checks re-run live.
+    </p>
+    <div class="stat-row" id="statRow"></div>
+  </div>
+</header>
+
+<section id="pipeline">
+  <div class="wrap">
+    <h2>Why the pipeline is shaped this way</h2>
+    <p class="section-note">
+      The original skill asked a language model to hold the donor list, do
+      the arithmetic, and write the letter, all in one step, on faith. The
+      redesign puts a checkpoint at every place that step could go wrong,
+      before a model ever touches the data.
+    </p>
+    <div class="dag-scroll">
+      <svg viewBox="0 0 1120 260" role="img" aria-label="Pipeline diagram: donor file and campaign config flow through validate, calculate, and generate stages, with a human review gate before delivery.">
+        <defs>
+          <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 Z" class="dag-arrow-head" />
+          </marker>
+        </defs>
+
+        <!-- inputs -->
+        <g class="dag-node">
+          <rect x="10" y="30" width="120" height="46" rx="6" />
+          <text class="title" x="20" y="50">Donor file</text>
+          <text class="sub" x="20" y="65">CSV / XLSX</text>
+        </g>
+        <g class="dag-node">
+          <rect x="10" y="110" width="120" height="46" rx="6" />
+          <text class="title" x="20" y="130">Campaign config</text>
+          <text class="sub" x="20" y="145">JSON</text>
+        </g>
+
+        <line x1="130" y1="53" x2="185" y2="93" class="dag-arrow" marker-end="url(#arrowhead)" />
+        <line x1="130" y1="133" x2="185" y2="103" class="dag-arrow" marker-end="url(#arrowhead)" />
+
+        <!-- validate -->
+        <g class="dag-node stage">
+          <rect x="190" y="70" width="150" height="60" rx="6" />
+          <text class="title" x="200" y="93">1. Validate</text>
+          <text class="sub" x="200" y="108">recompute tier, dates,</text>
+          <text class="sub" x="200" y="121">totals from source data</text>
+        </g>
+        <text class="dag-annot" x="195" y="150">4 tier mismatches caught here</text>
+
+        <line x1="340" y1="100" x2="395" y2="100" class="dag-arrow" marker-end="url(#arrowhead)" />
+
+        <!-- calculate -->
+        <g class="dag-node stage">
+          <rect x="400" y="70" width="150" height="60" rx="6" />
+          <text class="title" x="410" y="93">2. Calculate</text>
+          <text class="sub" x="410" y="108">deterministic ask math,</text>
+          <text class="sub" x="410" y="121">confidence score</text>
+        </g>
+        <text class="dag-annot" x="405" y="150">no arithmetic in the model</text>
+
+        <line x1="550" y1="100" x2="605" y2="100" class="dag-arrow" marker-end="url(#arrowhead)" />
+
+        <!-- generate -->
+        <g class="dag-node stage">
+          <rect x="610" y="70" width="150" height="60" rx="6" />
+          <text class="title" x="620" y="93">3. Generate</text>
+          <text class="sub" x="620" y="108">letter model checked</text>
+          <text class="sub" x="620" y="121">against a schema, then HTML</text>
+        </g>
+        <text class="dag-annot" x="615" y="150">no unconfirmed claims possible</text>
+
+        <line x1="760" y1="100" x2="815" y2="100" class="dag-arrow" marker-end="url(#arrowhead)" />
+
+        <!-- gate -->
+        <g class="dag-node">
+          <rect x="820" y="65" width="140" height="70" rx="6" />
+          <text class="title" x="830" y="90">Human review</text>
+          <text class="sub" x="830" y="105">Platinum: always</text>
+          <text class="sub" x="830" y="118">below 0.90: held</text>
+        </g>
+
+        <line x1="960" y1="100" x2="1015" y2="100" class="dag-arrow" marker-end="url(#arrowhead)" />
+
+        <g class="dag-node">
+          <rect x="1020" y="75" width="90" height="50" rx="6" />
+          <text class="title" x="1028" y="97">Delivery</text>
+          <text class="sub" x="1028" y="112">by a person</text>
+        </g>
+
+        <!-- feedback loop -->
+        <path d="M 265,132 C 265,190 320,205 400,192" class="dag-arrow" marker-end="url(#arrowhead)" />
+        <text class="dag-annot" x="270" y="215">held records: approve a fix, re-run</text>
+      </svg>
+    </div>
+    <div class="dag-legend">
+      <span><i style="background:var(--accent)"></i>deterministic pipeline stage</span>
+      <span><i style="background:var(--crit)"></i>where a planted error is caught</span>
+    </div>
+
+    <div class="why-grid">
+      <div class="why-card">
+        <h3>Tiers are computed, not trusted</h3>
+        <p>Four donors were filed under a tier their own giving history contradicts. The gift list is the source of truth; the stated label is checked against it every run.</p>
+      </div>
+      <div class="why-card">
+        <h3>Dates need a reference point</h3>
+        <p>One donor's gift is dated a year later than the rest of the file. Every date rule now runs against an explicit as-of date instead of the day the batch happens to run.</p>
+      </div>
+      <div class="why-card">
+        <h3>Letters are data before they are HTML</h3>
+        <p>Each letter is checked against a schema, exactly one dollar amount, every field present, before any markup exists.</p>
+      </div>
+      <div class="why-card">
+        <h3>Confidence decides who reviews what</h3>
+        <p>Below 0.70 a record is blocked outright. Below 0.90 it is held for a person. Everything else still gets a Platinum-always check.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="data">
+  <div class="wrap">
+    <h2>Review or correct the dataset</h2>
+    <p class="section-note">
+      Fifty records, the full case-study file. Search by name, filter by
+      status, or edit any highlighted cell directly; edits re-run the same
+      tier and date logic the Python pipeline uses. Nothing here is sent
+      anywhere; use the export to carry corrections back to the source file.
+    </p>
+
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="Search donor name…" aria-label="Search donor name" />
+      <select id="statusFilter" aria-label="Filter by status">
+        <option value="all">All statuses</option>
+        <option value="crit">Needs correction</option>
+        <option value="warn">Held for review</option>
+        <option value="ok">Clean</option>
+      </select>
+      <div class="spacer"></div>
+      <button class="ghost" id="resetBtn" type="button">Reset edits</button>
+      <button id="exportBtn" type="button">Download corrected CSV</button>
+    </div>
+
+    <div class="table-scroll">
+      <table id="donorTable">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Donor</th>
+            <th>Region</th>
+            <th>Stated tier</th>
+            <th>Computed tier</th>
+            <th>Status</th>
+            <th>Largest gift</th>
+            <th>Lifetime</th>
+            <th>Last gift yr</th>
+            <th>Ask</th>
+            <th>Confidence</th>
+            <th>Flag</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+      <div class="empty-state" id="emptyState" hidden>No donors match this search or filter.</div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <footer class="page-footer">
+    <span>Generated from the validated pipeline output. As-of date 2024-06-30. Full source, tests, and decision records in the repository.</span>
+    <span id="editCount">0 edits pending</span>
+  </footer>
+</div>
+
+<script id="dataset" type="application/json">
+__DATASET_JSON__
+</script>
+
+<script>
+(function () {
+  "use strict";
+
+  var root = document.documentElement;
+  var toggle = document.getElementById("themeToggle");
+  toggle.addEventListener("click", function () {
+    var current = root.getAttribute("data-theme");
+    var next = current === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+  });
+
+  var RAW = JSON.parse(document.getElementById("dataset").textContent);
+
+  var TIER_MIN = [["Platinum", 50000], ["Gold", 10000], ["Silver", 1000], ["Bronze", 0]];
+  function computeTier(lifetime) {
+    for (var i = 0; i < TIER_MIN.length; i++) {
+      if (lifetime >= TIER_MIN[i][1]) return TIER_MIN[i][0];
+    }
+    return "Bronze";
+  }
+  function isLapsed(lastYear, asOfYear) { return (asOfYear - lastYear) > 3; }
+  var AS_OF_YEAR = 2024;
+
+  function parseGifts(text) {
+    var out = [];
+    (text || "").split("|").forEach(function (token) {
+      var m = /^(\d{4}):(\d+(?:\.\d+)?)$/.exec(token.trim());
+      if (m) out.push([parseInt(m[1], 10), parseFloat(m[2])]);
+    });
+    return out;
+  }
+
+  function money(n) {
+    return "$" + Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  }
+
+  // Working copy: edits recompute tier/status live, exactly mirroring
+  // donor_rules.compute_tier / is_lapsed in the Python pipeline.
+  var donors = RAW.map(function (d, i) {
+    var gifts = parseGifts(d.gifts);
+    var largest = gifts.length ? Math.max.apply(null, gifts.map(function (g) { return g[1]; })) : parseFloat(d.largest_gift) || 0;
+    var lifetime = gifts.length ? gifts.reduce(function (s, g) { return s + g[1]; }, 0) : parseFloat(d.lifetime_total) || 0;
+    var lastYear = gifts.length ? Math.max.apply(null, gifts.map(function (g) { return g[0]; })) : parseInt(d.last_gift_year, 10) || AS_OF_YEAR;
+    return {
+      id: i,
+      donor_name: d.donor_name,
+      region: d.region,
+      stated_tier: d.stated_tier,
+      volunteer: d.volunteer,
+      gifts: d.gifts,
+      largest_gift: largest,
+      lifetime_total: lifetime,
+      last_gift_year: lastYear,
+      ask_amount: d.ask_amount || "",
+      ask_trace: d.ask_trace || (d.errors ? "Held: " + d.errors : ""),
+      original_confidence: d.confidence || "",
+      original_band: d.confidence_band || (d.status === "exception" ? "fail" : ""),
+      edited: false,
+    };
+  });
+
+  function deriveState(row) {
+    // Mirrors validate_input.py exactly: "Lapsed" in the tier column is a
+    // status claim checked against the computed lapsed-by-date status, never
+    // compared to the financial tier. Platinum/Gold/Silver/Bronze are
+    // compared to the computed financial tier directly.
+    var computedTier = computeTier(row.lifetime_total);
+    var lapsed = isLapsed(row.last_gift_year, AS_OF_YEAR);
+    var mismatch = false;
+    if (row.stated_tier === "Lapsed") {
+      mismatch = !lapsed;
+    } else if (row.stated_tier) {
+      mismatch = row.stated_tier !== computedTier;
+    }
+    var flagLevel, flagText;
+    if (mismatch && row.stated_tier === "Lapsed") {
+      flagLevel = "crit";
+      flagText = "Filed Lapsed but last gift was " + row.last_gift_year + ", not lapsed by date policy";
+    } else if (mismatch) {
+      flagLevel = "crit";
+      flagText = "Tier mismatch: stated " + row.stated_tier + ", computed " + computedTier;
+    } else if (lapsed && (row.stated_tier === "Platinum" || row.stated_tier === "Gold")) {
+      flagLevel = "warn";
+      flagText = "Lapsed major donor: route to personal outreach";
+    } else if (row.original_band === "report" || row.edited) {
+      flagLevel = "warn";
+      flagText = row.edited ? "Edited: recheck before finalizing" : "Held for review";
+    } else {
+      flagLevel = "ok";
+      flagText = "Clean";
+    }
+    return { computedTier: computedTier, lapsed: lapsed, flagLevel: flagLevel, flagText: flagText };
+  }
+
+  var tbody = document.getElementById("tableBody");
+  var emptyState = document.getElementById("emptyState");
+  var statRow = document.getElementById("statRow");
+  var editCountEl = document.getElementById("editCount");
+
+  function pill(level, text) {
+    return '<span class="pill ' + level + '">' + text + "</span>";
+  }
+
+  function renderStats() {
+    var crit = 0, warn = 0, ok = 0;
+    donors.forEach(function (row) {
+      var s = deriveState(row);
+      if (s.flagLevel === "crit") crit++;
+      else if (s.flagLevel === "warn") warn++;
+      else ok++;
+    });
+    statRow.innerHTML =
+      '<div class="stat"><span class="n">' + donors.length + '</span><span class="l">Total records</span></div>' +
+      '<div class="stat ok"><span class="n">' + ok + '</span><span class="l">Clean</span></div>' +
+      '<div class="stat warn"><span class="n">' + warn + '</span><span class="l">Held for review</span></div>' +
+      '<div class="stat crit"><span class="n">' + crit + '</span><span class="l">Needs correction</span></div>';
+  }
+
+  function editedCount() {
+    return donors.filter(function (d) { return d.edited; }).length;
+  }
+
+  function renderRows() {
+    var query = document.getElementById("search").value.trim().toLowerCase();
+    var filter = document.getElementById("statusFilter").value;
+    tbody.innerHTML = "";
+    var shown = 0;
+
+    donors.forEach(function (row) {
+      if (query && row.donor_name.toLowerCase().indexOf(query) === -1) return;
+      var state = deriveState(row);
+      if (filter !== "all" && state.flagLevel !== filter) return;
+      shown++;
+
+      var tr = document.createElement("tr");
+      if (row.edited) tr.className = "is-edited";
+      tr.innerHTML =
+        '<td><button class="row-detail-btn" data-id="' + row.id + '" type="button">▸</button></td>' +
+        '<td>' + row.donor_name + '</td>' +
+        '<td>' + row.region + '</td>' +
+        '<td class="editable" contenteditable="true" data-field="stated_tier" data-id="' + row.id + '">' + row.stated_tier + '</td>' +
+        '<td>' + state.computedTier + '</td>' +
+        '<td>' + (state.lapsed ? pill("warn", "lapsed") : pill("ok", "active")) + '</td>' +
+        '<td class="num editable" contenteditable="true" data-field="largest_gift" data-id="' + row.id + '">' + money(row.largest_gift) + '</td>' +
+        '<td class="num">' + money(row.lifetime_total) + '</td>' +
+        '<td class="num editable" contenteditable="true" data-field="last_gift_year" data-id="' + row.id + '">' + row.last_gift_year + '</td>' +
+        '<td class="num">' + (row.ask_amount ? money(row.ask_amount) : "—") + '</td>' +
+        '<td class="num">' + (row.original_confidence || "—") + '</td>' +
+        '<td>' + pill(state.flagLevel, state.flagText) + '</td>';
+      tbody.appendChild(tr);
+
+      var detail = document.createElement("tr");
+      detail.className = "detail-row hidden";
+      detail.dataset.detailFor = row.id;
+      var td = document.createElement("td");
+      td.colSpan = 12;
+      td.textContent = row.ask_trace || "No calculation trace: this record was held before ask calculation.";
+      detail.appendChild(td);
+      tbody.appendChild(detail);
+    });
+
+    emptyState.hidden = shown > 0;
+    editCountEl.textContent = editedCount() + " edit" + (editedCount() === 1 ? "" : "s") + " pending";
+  }
+
+  tbody.addEventListener("click", function (e) {
+    var btn = e.target.closest(".row-detail-btn");
+    if (!btn) return;
+    var row = tbody.querySelector('.detail-row[data-detail-for="' + btn.dataset.id + '"]');
+    if (row) row.classList.toggle("hidden");
+    btn.textContent = row.classList.contains("hidden") ? "▸" : "▾";
+  });
+
+  tbody.addEventListener("blur", function (e) {
+    var cell = e.target.closest("td.editable");
+    if (!cell) return;
+    var id = parseInt(cell.dataset.id, 10);
+    var field = cell.dataset.field;
+    var row = donors[id];
+    var text = cell.textContent.trim();
+
+    if (field === "largest_gift") {
+      var n = parseFloat(text.replace(/[$,]/g, ""));
+      if (!isNaN(n)) { row.largest_gift = n; row.edited = true; }
+    } else if (field === "last_gift_year") {
+      var y = parseInt(text, 10);
+      if (!isNaN(y)) { row.last_gift_year = y; row.edited = true; }
+    } else if (field === "stated_tier") {
+      if (["Platinum", "Gold", "Silver", "Bronze"].indexOf(text) !== -1) {
+        row.stated_tier = text; row.edited = true;
+      }
+    }
+    renderStats();
+    renderRows();
+  }, true);
+
+  document.getElementById("search").addEventListener("input", renderRows);
+  document.getElementById("statusFilter").addEventListener("change", renderRows);
+
+  document.getElementById("resetBtn").addEventListener("click", function () {
+    donors = RAW.map(function (d, i) {
+      var gifts = parseGifts(d.gifts);
+      var largest = gifts.length ? Math.max.apply(null, gifts.map(function (g) { return g[1]; })) : parseFloat(d.largest_gift) || 0;
+      var lifetime = gifts.length ? gifts.reduce(function (s, g) { return s + g[1]; }, 0) : parseFloat(d.lifetime_total) || 0;
+      var lastYear = gifts.length ? Math.max.apply(null, gifts.map(function (g) { return g[0]; })) : parseInt(d.last_gift_year, 10) || AS_OF_YEAR;
+      return {
+        id: i, donor_name: d.donor_name, region: d.region, stated_tier: d.stated_tier,
+        volunteer: d.volunteer, gifts: d.gifts, largest_gift: largest, lifetime_total: lifetime,
+        last_gift_year: lastYear, ask_amount: d.ask_amount || "",
+        ask_trace: d.ask_trace || (d.errors ? "Held: " + d.errors : ""),
+        original_confidence: d.confidence || "", original_band: d.confidence_band || (d.status === "exception" ? "fail" : ""),
+        edited: false,
+      };
+    });
+    renderStats();
+    renderRows();
+  });
+
+  document.getElementById("exportBtn").addEventListener("click", function () {
+    var header = ["donor_name", "region", "tier", "largest_gift", "lifetime_total", "last_gift_year", "volunteer", "gifts"];
+    var lines = [header.join(",")];
+    donors.forEach(function (row) {
+      var state = deriveState(row);
+      var cells = [
+        row.donor_name, row.region, state.computedTier, row.largest_gift.toFixed(2),
+        row.lifetime_total.toFixed(2), row.last_gift_year, row.volunteer, row.gifts,
+      ].map(function (v) {
+        v = String(v);
+        return /[",]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+      });
+      lines.push(cells.join(","));
+    });
+    var blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "donors_corrected.csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  renderStats();
+  renderRows();
+})();
+</script>
+
+</body>
+</html>

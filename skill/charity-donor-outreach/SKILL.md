@@ -123,3 +123,14 @@ ever sent by this skill; output is files for human review.
 
 - `references/policy.md`: tiers, ask policy, messaging library, review gates.
 - `references/input_schema.md`: donor file and campaign config schemas.
+- `references/letter_schema.json`: the structure every letter must satisfy
+  before it is rendered.
+
+## Decision history
+
+Persistent changes leave ADR-style entries in the deployment's decision log
+(`docs/decision-log/` in this repository): applied corrections, adopted style
+preferences, and batch sign-offs, each with the approver's name. Before
+repeating a correction or questioning a style choice, consult the log; if you
+apply corrections yourself, pass `--decision-log` and `--approved-by` so the
+change is recorded.

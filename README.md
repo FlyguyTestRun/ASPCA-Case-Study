@@ -9,6 +9,7 @@ The brief: a nonprofit technology consultant drafted an AI agent skill, [charity
 - [Results on the case-study data](#results-on-the-case-study-data)
 - [How the pipeline works](#how-the-pipeline-works)
 - [Try it](#try-it)
+- [Standalone review artifact](#standalone-review-artifact)
 - [Where everything lives](#where-everything-lives)
 - [Design principles](#design-principles)
 
@@ -106,6 +107,10 @@ streamlit run app/review_app.py
 
 A completed run is committed in [output/](output/) as evidence: the [review manifest](output/manifest.csv) and all 44 drafted letters.
 
+## Standalone review artifact
+
+[deliverable/donor-data-review.html](deliverable/donor-data-review.html) opens in any browser, no install, no server, no network. It states the verified result up front, diagrams the pipeline with each stage tied to the problem it solves, and lists all 50 donors in a searchable, editable table: correct a flagged field and the same tier and date logic the Python validator runs re-checks it instantly, in the browser. Export produces a corrected CSV. The embedded dataset is built from the real pipeline, never hand-typed, and the page's own JavaScript logic is executed and pinned against the Python output by [tests/test_deliverable_logic.py](tests/test_deliverable_logic.py). Details and rebuild instructions: [deliverable/README.md](deliverable/README.md); design record: [ADR 0021](docs/adr/0021-standalone-review-artifact.md).
+
 ## Where everything lives
 
 | Document | What it is |
@@ -113,10 +118,12 @@ A completed run is committed in [output/](output/) as evidence: the [review mani
 | [Assessment](assessment/ASSESSMENT.md) | The written case-study response: findings, impact, the rewrite, the production path |
 | [Design review](docs/design-review/README.md) | The original skill examined problem by problem, each with a validity verdict, the fix, and what changes at scale |
 | [Components guide](docs/components.md) | Every script, reference file, and interface explained for both non-technical readers and engineers |
-| [Decision records](docs/adr/) | 18 ADRs: one per correction, each with the problem, the decision, and the forward impact |
+| [Decision records](docs/adr/) | 20 ADRs: one per correction, each with the problem, the decision, and the forward impact |
+| [Decision history](docs/decision-log/) | ADR-style entries the running system writes for itself: applied corrections, style adoptions, batch sign-offs, each with a named approver |
 | [Trap registry](docs/trap-registry.md) | Every planted defect: where it hides, how it is caught, the test that proves it |
 | [Scale architecture](docs/scale-architecture.md) | What gets built when volume demands it, and the trigger for each addition |
 | [Rewritten skill](skill/charity-donor-outreach/SKILL.md) | The lean instruction file: judgment only, no math, no guessing, nothing sent |
+| [Standalone review artifact](deliverable/donor-data-review.html) | Open in any browser: verified results, the pipeline diagram, and an editable, exportable view of all 50 donors |
 | [Hours log](HOURS.md) | Time spent on this engagement, block by block |
 
 ## Design principles

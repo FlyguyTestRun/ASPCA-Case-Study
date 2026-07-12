@@ -1,14 +1,17 @@
 """Donor outreach review interface.
 
-A local web app for fundraising staff: upload a donor file, set the campaign,
-and see every data problem, warning, confidence score, and letter before
-anything goes near an outbox. Approve suggested data fixes and resubmit in
-one click. Teach the system your letter style, within guardrails, by sharing
-your edited letters.
+A guided workflow for fundraising staff, four steps, one path:
+
+    1. Upload      bring in the donor file, set the campaign
+    2. Findings    every error and warning explained; approve fixes, resubmit
+    3. Review      search any donor, read their letter, sign off record by record
+    4. Finalize    sign-off is recorded to the decision history, then export
 
 This app contains no business logic. It shells out to the same scripts the
-skill uses, so what you see here is exactly what the pipeline does. See
-docs/adr/0012-operator-interface.md, 0014, and 0015.
+skill uses, so what you see here is exactly what the pipeline does. Nothing
+is ever sent from here, and nothing is finalized until a named person signs
+off. Persistent changes (corrections, style adoptions, sign-offs) each write
+an entry to docs/decision-log/, the running system's own ADR history.
 
 Run with:
     streamlit run app/review_app.py
@@ -33,8 +36,12 @@ SCRIPTS = SKILL_DIR / "scripts"
 FIXTURE = SKILL_DIR / "assets" / "sample_donors.csv"
 TEMPLATE = SKILL_DIR / "assets" / "template.html"
 STYLE_PROFILE = REPO_ROOT / "feedback" / "style_profile.json"
+DECISION_LOG = REPO_ROOT / "docs" / "decision-log"
 AUDIO_FILE = Path(__file__).resolve().parent / "assets" / "tutorial_walkthrough.wav"
 TRANSCRIPT_FILE = Path(__file__).resolve().parent / "assets" / "tutorial_transcript.md"
+
+sys.path.insert(0, str(SCRIPTS))
+import donor_rules as rules  # noqa: E402
 
 CAMPAIGN_LABELS = {
     "emergency_appeal": "Emergency appeal",
@@ -42,6 +49,8 @@ CAMPAIGN_LABELS = {
     "capital_campaign": "Capital campaign",
     "event_fundraiser": "Event fundraiser",
 }
+STEP_NAMES = ["Upload", "Findings", "Review", "Finalize"]
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 st.set_page_config(page_title="Donor Outreach Review", page_icon="📬", layout="wide")
 
@@ -50,6 +59,10 @@ def tip(text: str) -> None:
     """Tutorial callout, shown only when tutorial mode is on."""
     if st.session_state.get("tutorial", True):
         st.info(text, icon="🎓")
+
+
+def operator_name() -> str:
+    return (st.session_state.get("operator") or "").strip()
 
 
 def run_pipeline(donor_bytes: bytes, donor_suffix: str, config: dict) -> dict:
@@ -133,9 +146,7 @@ def learn_style_from_uploads(original_letters: dict[str, str], edited_files) -> 
         )
         if result.returncode != 0:
             return {"error": result.stderr or result.stdout}
-        report = json.loads((workdir / "style_suggestions.json").read_text(encoding="utf-8"))
-        report["_log"] = result.stdout
-        return report
+        return json.loads((workdir / "style_suggestions.json").read_text(encoding="utf-8"))
 
 
 def adopt_style(field: str, value: str, evidence: int, approved_by: str) -> None:
@@ -148,44 +159,80 @@ def adopt_style(field: str, value: str, evidence: int, approved_by: str) -> None
     profile["evidence_edits"] = evidence
     STYLE_PROFILE.parent.mkdir(parents=True, exist_ok=True)
     STYLE_PROFILE.write_text(json.dumps(profile, indent=2), encoding="utf-8")
+    rules.record_decision(
+        DECISION_LOG,
+        title=f"Adopted letter style preference: {field}",
+        problem=("Reviewers repeatedly made the same edit to drafted letters, "
+                 "which meant the house style did not match the team's voice."),
+        decision=(f"{field} set to {value!r}, observed identically in "
+                  f"{evidence} edited letters and passed through the style "
+                  "guardrails."),
+        effect=("Future letters use this preference automatically. It can only "
+                "affect personality-level content and is re-checked against "
+                "the guardrails on every generation run."),
+        approved_by=approved_by,
+        source="review app, letter style panel",
+    )
+
+
+def export_manifest(manifest: pd.DataFrame) -> pd.DataFrame:
+    reviewed = st.session_state.get("reviewed", {})
+    out = manifest.copy()
+    out["reviewed"] = out["donor_id"].map(lambda d: "yes" if reviewed.get(d) else "no")
+    out["reviewed_by"] = out["donor_id"].map(
+        lambda d: operator_name() if reviewed.get(d) else ""
+    )
+    return out
 
 
 def letters_zip(letters: dict[str, str], manifest: pd.DataFrame) -> bytes:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as bundle:
-        bundle.writestr("manifest.csv", manifest.to_csv(index=False))
+        bundle.writestr("manifest.csv", export_manifest(manifest).to_csv(index=False))
         for name, content in letters.items():
             bundle.writestr(f"letters/{name}", content)
     return buffer.getvalue()
 
 
+def start_run(data: bytes, suffix: str, label: str, config: dict) -> None:
+    st.session_state["donor_bytes"] = data
+    st.session_state["donor_suffix"] = suffix
+    st.session_state["source"] = label
+    st.session_state["result"] = run_pipeline(data, suffix, config)
+    st.session_state["reviewed"] = {}
+    st.session_state["signoff_recorded"] = False
+    st.session_state["run_id"] = st.session_state.get("run_id", 0) + 1
+    st.session_state["stage"] = 2
+
+
+def go(stage: int) -> None:
+    st.session_state["stage"] = stage
+
+
+# ---------------------------------------------------------------- sidebar --
+
 st.title("Donor Outreach Review")
-st.caption(
-    "Upload a donor file, set the campaign, and review everything before a "
-    "single letter goes out. Every number is computed by the same audited "
-    "policy scripts the automation uses. Nothing is ever sent from here."
-)
 
 with st.sidebar:
-    st.header("Help")
+    st.text_input(
+        "Your name", key="operator",
+        help="Recorded with every approval you make: corrections, style "
+             "adoptions, and the final sign-off all carry your name in the "
+             "decision history.",
+    )
     st.toggle(
-        "Tutorial mode", key="tutorial", value=st.session_state.get("tutorial", True),
-        help="Shows plain-language guidance beside each step. Turn it off once "
-             "you know your way around.",
+        "Tutorial mode", key="tutorial",
+        value=st.session_state.get("tutorial", True),
+        help="Plain-language guidance beside each step.",
     )
-    audio_on = st.toggle(
-        "Audio walkthrough", value=False,
-        help="A narrated tour of this screen, including why the original "
-             "spreadsheet-in-a-prompt approach fails at scale.",
-    )
-    if audio_on:
+    if st.toggle("Audio walkthrough", value=False):
         if AUDIO_FILE.exists():
             st.audio(AUDIO_FILE.read_bytes(), format="audio/wav")
             if TRANSCRIPT_FILE.exists():
                 with st.expander("Transcript"):
                     st.markdown(TRANSCRIPT_FILE.read_text(encoding="utf-8"))
         else:
-            st.warning("Audio file not found. See app/assets/ for how it is generated.")
+            st.warning("Audio file not found; see app/assets/README.md.")
 
     st.header("Campaign settings")
     campaign_type = st.selectbox(
@@ -204,14 +251,14 @@ with st.sidebar:
     st.subheader("Gift matching")
     match_confirmed = st.checkbox(
         "A gift match is confirmed in writing",
-        help="Letters may only mention matching when this is checked. "
-             "Unconfirmed match claims are a compliance risk, so the pipeline "
-             "blocks them entirely.",
+        help="Letters may only mention matching when this is checked; "
+             "unconfirmed match claims are blocked entirely.",
     )
     match_sponsor = match_terms = ""
     if match_confirmed:
         match_sponsor = st.text_input("Match sponsor")
-        match_terms = st.text_input("Match terms", placeholder="doubled up to $100,000 through August 31")
+        match_terms = st.text_input("Match terms",
+                                    placeholder="doubled up to $100,000 through August 31")
 
     event_name = ""
     event_registered_count = None
@@ -241,48 +288,55 @@ config = {
     "reengagement_gift": reengagement_gift,
 }
 
-tip(
-    "Step 1: upload your donor export (or press Try the sample file). The "
-    "checks read the gift history itself and verify everything else against "
-    "it, so mislabeled tiers and unbalanced totals are caught here, not in "
-    "a donor's mailbox."
-)
+# ----------------------------------------------------------------- header --
 
-upload_col, sample_col = st.columns([3, 1])
-with upload_col:
-    uploaded = st.file_uploader("Donor file (CSV or Excel)", type=["csv", "xlsx", "xls"])
-with sample_col:
-    st.write("")
-    use_sample = st.button("Try the sample file", width="stretch")
-
-
-def start_run(data: bytes, suffix: str, label: str) -> None:
-    st.session_state["donor_bytes"] = data
-    st.session_state["donor_suffix"] = suffix
-    st.session_state["source"] = label
-    st.session_state["result"] = run_pipeline(data, suffix, config)
-
-
-MAX_UPLOAD_BYTES = 5 * 1024 * 1024
-
-if use_sample:
-    start_run(FIXTURE.read_bytes(), ".csv", FIXTURE.name)
-elif uploaded is not None:
-    if len(uploaded.getvalue()) > MAX_UPLOAD_BYTES:
-        st.error(
-            "That file is larger than 5 MB. Donor exports this size should go "
-            "through the batch pipeline directly rather than the browser; ask "
-            "a technical colleague to run the validate script on it."
-        )
-    elif st.button("Run checks", type="primary"):
-        start_run(uploaded.getvalue(), Path(uploaded.name).suffix.lower() or ".csv", uploaded.name)
+stage = st.session_state.get("stage", 1)
+cols = st.columns(4)
+for index, name in enumerate(STEP_NAMES, start=1):
+    marker = "●" if index == stage else ("✔" if index < stage else "○")
+    cols[index - 1].markdown(f"**{marker} Step {index}: {name}**")
+st.progress((stage - 1) / 3)
 
 result = st.session_state.get("result")
-if result is None:
+
+# ---------------------------------------------------------- stage 1: upload --
+
+if stage == 1:
+    tip(
+        "Start here. Set the campaign in the sidebar (especially the as-of "
+        "date), then upload your donor export or try the built-in sample. "
+        "The checks read the gift history itself and verify everything else "
+        "against it, so mislabeled tiers, unbalanced totals, and impossible "
+        "dates are caught here, not in a donor's mailbox."
+    )
+    upload_col, sample_col = st.columns([3, 1])
+    with upload_col:
+        uploaded = st.file_uploader("Donor file (CSV or Excel)", type=["csv", "xlsx", "xls"])
+    with sample_col:
+        st.write("")
+        if st.button("Try the sample file", width="stretch"):
+            start_run(FIXTURE.read_bytes(), ".csv", FIXTURE.name, config)
+            st.rerun()
+    if uploaded is not None:
+        if len(uploaded.getvalue()) > MAX_UPLOAD_BYTES:
+            st.error(
+                "That file is larger than 5 MB. Donor exports this size should "
+                "go through the batch pipeline directly; ask a technical "
+                "colleague to run the validate script on it."
+            )
+        elif st.button("Run checks", type="primary"):
+            start_run(uploaded.getvalue(),
+                      Path(uploaded.name).suffix.lower() or ".csv",
+                      uploaded.name, config)
+            st.rerun()
     st.stop()
 
-if not result["ok"]:
-    st.error(f"The {result['step']} step could not run:\n\n{result['error']}")
+if result is None or not result.get("ok"):
+    if result is not None:
+        st.error(f"The {result['step']} step could not run:\n\n{result['error']}")
+    if st.button("Back to upload"):
+        go(1)
+        st.rerun()
     st.stop()
 
 report = result["report"]
@@ -290,196 +344,323 @@ manifest = result["manifest"]
 exceptions = result["exceptions"]
 corrections = result["corrections"]
 letters = result["letters"]
+run_id = st.session_state.get("run_id", 0)
 
-st.subheader(f"Results for {st.session_state.get('source', 'donor file')}")
-m1, m2, m3, m4, m5 = st.columns(5)
-m1.metric("Rows in file", report["rows_in"])
-m2.metric("Passed all checks", report["rows_validated"])
-m3.metric("Need data fixes", report["rows_excepted"])
-m4.metric("Letters drafted", int((manifest["letter_file"] != "").sum()))
-m5.metric("Need human review", int((manifest["review_level"] != "none").sum()))
+st.caption(f"File: {st.session_state.get('source', 'donor file')}")
 
-tab_problems, tab_fixes, tab_review, tab_asks, tab_letters, tab_style, tab_log = st.tabs([
-    "Data problems", "Fix and resubmit", "Review queue", "Ask calculations",
-    "Letter previews", "Letter style", "Run log",
-])
+# -------------------------------------------------------- stage 2: findings --
 
-with tab_problems:
+if stage == 2:
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Rows in file", report["rows_in"])
+    m2.metric("Passed all checks", report["rows_validated"])
+    m3.metric("Held for data fixes", report["rows_excepted"])
+    m4.metric("Passed with warnings", report["rows_with_warnings"])
+
     tip(
-        "Every held-back record is listed with the exact problem and a "
-        "suggested correction. Nothing is fixed silently: you decide, on the "
-        "next tab, what gets applied."
+        "Proof the data before any letter is finalized. Held records are "
+        "listed with the exact problem and a suggested fix; nothing is "
+        "corrected without your approval, and applying fixes re-runs every "
+        "check. Warnings do not hold a record, but they lower its confidence "
+        "and add it to the review queue in the next step."
     )
-    if len(exceptions):
-        st.error(
-            f"{len(exceptions)} donor record(s) were held back. No letters were "
-            "created for them."
-        )
-        st.dataframe(exceptions, width="stretch", hide_index=True)
-    else:
+
+    if len(exceptions) == 0:
         st.success("No records were held back. Every row passed validation.")
-    warned = manifest[manifest["warnings"] != ""]
-    if len(warned):
-        st.warning(
-            f"{len(warned)} record(s) passed but carry warnings. Their letters "
-            "exist and are marked for review."
-        )
-        st.dataframe(
-            warned[["donor_name", "tier", "status", "confidence", "warnings"]],
-            width="stretch", hide_index=True,
-        )
-
-with tab_fixes:
-    tip(
-        "This is the human gate. Each suggested fix shows the current value, "
-        "the value computed from the donor's own gift history, and the reason. "
-        "Untick anything you disagree with, then apply and re-run. Remember to "
-        "make the same fix in your source system so it stays fixed."
-    )
-    if len(corrections) == 0:
-        st.success("No suggested corrections for this file.")
     else:
+        st.error(
+            f"{len(exceptions)} record(s) held back, no letters created for "
+            "them. Approve the fixes you agree with, then apply and re-check."
+        )
         editable = corrections.copy()
         editable.insert(0, "approve", True)
         edited = st.data_editor(
             editable, width="stretch", hide_index=True,
             disabled=[c for c in editable.columns if c != "approve"],
             column_config={"approve": st.column_config.CheckboxColumn("Approve")},
+            key=f"fixes_{run_id}",
         )
         approved = edited[edited["approve"] == True]  # noqa: E712
-        col_a, col_b = st.columns(2)
-        with col_a:
+        if not operator_name():
+            st.warning("Enter your name in the sidebar to apply fixes; every "
+                       "approval is recorded with a name.")
+        apply_col, download_col = st.columns(2)
+        with apply_col:
             if st.button(
                 f"Apply {len(approved)} approved fix(es) and re-run checks",
-                type="primary", disabled=len(approved) == 0,
+                type="primary",
+                disabled=len(approved) == 0 or not operator_name(),
             ):
                 corrected = apply_corrections_to_bytes(
                     st.session_state["donor_bytes"],
                     st.session_state["donor_suffix"], approved,
                 )
-                start_run(corrected, ".csv",
-                          st.session_state["source"] + " (corrected)")
-                st.rerun()
-        with col_b:
-            if len(approved):
-                corrected_preview = apply_corrections_to_bytes(
-                    st.session_state["donor_bytes"],
-                    st.session_state["donor_suffix"], approved,
+                changes = [
+                    f"row {fix['row_number']} ({fix['donor_name']}): "
+                    f"{fix['field']} {fix['current_value']!r} -> "
+                    f"{fix['suggested_value']!r} ({fix['reason']})"
+                    for _, fix in approved.iterrows()
+                ]
+                rules.record_decision(
+                    DECISION_LOG,
+                    title=(f"Applied {len(approved)} data correction(s) to "
+                           f"{st.session_state['source']}"),
+                    problem=("Validation held these records because stated "
+                             "values contradicted the gift history, which is "
+                             "the source of truth."),
+                    decision="Corrections approved and applied:\n\n"
+                             + "\n".join(f"- {line}" for line in changes),
+                    effect=("The corrected file supersedes the original for "
+                            "this run. The same corrections must be made in "
+                            "the source system so the discrepancy does not "
+                            "recur."),
+                    approved_by=operator_name(),
+                    source="review app, findings step",
                 )
+                start_run(corrected, ".csv",
+                          st.session_state["source"].replace(" (corrected)", "")
+                          + " (corrected)", config)
+                st.rerun()
+        with download_col:
+            if len(approved):
                 st.download_button(
                     "Download corrected file for your source system",
-                    corrected_preview, file_name="donors_corrected.csv",
-                    width="stretch",
+                    apply_corrections_to_bytes(
+                        st.session_state["donor_bytes"],
+                        st.session_state["donor_suffix"], approved),
+                    file_name="donors_corrected.csv", width="stretch",
                 )
 
-with tab_review:
-    tip(
-        "Review levels are policy, not preference: every Platinum letter gets "
-        "individual review, any warning means review is recommended, and low "
-        "confidence or special routing makes it mandatory. Lapsed major donors "
-        "never get a form letter; they appear here routed to personal outreach."
-    )
-    order = {"mandatory": 0, "recommended": 1, "none": 2}
-    queue = manifest.sort_values(by="review_level", key=lambda s: s.map(order))
-    st.dataframe(
-        queue[["donor_name", "tier", "status", "ask_amount", "confidence",
-               "review_level", "review_reasons", "warnings"]],
-        width="stretch", hide_index=True,
-    )
-
-with tab_asks:
-    tip(
-        "Every ask amount is calculated by the policy script, never estimated. "
-        "The trace column shows each step, so any number can be explained to a "
-        "donor, an auditor, or a new team member."
-    )
-    st.dataframe(
-        result["computed"][["donor_name", "tier", "status", "largest_gift",
-                            "lifetime_total", "ask_amount", "ask_trace"]],
-        width="stretch", hide_index=True,
-    )
-
-with tab_letters:
-    tip(
-        "Preview any drafted letter. Letters use approved campaign language "
-        "plus your adopted style preferences; facts and amounts come only "
-        "from verified data."
-    )
-    if letters:
-        eligible = manifest[manifest["letter_file"] != ""]
-        chosen = st.selectbox("Donor", eligible["donor_name"].tolist())
-        row = eligible[eligible["donor_name"] == chosen].iloc[0]
-        st.caption(
-            f"Tier {row['tier']}, ask ${row['ask_amount']}, confidence "
-            f"{row['confidence']}, review: {row['review_level']}"
+    warned = manifest[manifest["warnings"] != ""]
+    if len(warned):
+        st.warning(f"{len(warned)} record(s) passed with warnings; their "
+                   "letters exist and are queued for review in the next step.")
+        st.dataframe(
+            warned[["donor_name", "tier", "status", "confidence", "warnings"]],
+            width="stretch", hide_index=True,
         )
-        file_name = Path(row["letter_file"]).name
-        preview_dir = Path(tempfile.gettempdir()) / "donor_review_previews"
-        preview_dir.mkdir(parents=True, exist_ok=True)
-        preview_path = preview_dir / file_name
-        preview_path.write_text(letters[file_name], encoding="utf-8")
-        st.iframe(preview_path, height=520)
-    else:
-        st.info("No letters were generated on this run.")
 
-with tab_style:
+    nav_back, nav_next = st.columns([1, 3])
+    if nav_back.button("Back"):
+        go(1)
+        st.rerun()
+    next_label = "Continue to letter review"
+    if len(exceptions):
+        next_label += f" ({len(exceptions)} held record(s) stay excluded)"
+    if nav_next.button(next_label, type="primary"):
+        go(3)
+        st.rerun()
+    st.stop()
+
+# ---------------------------------------------------------- stage 3: review --
+
+required_ids = manifest.loc[manifest["review_level"] == "mandatory", "donor_id"].tolist()
+reviewed = st.session_state.setdefault("reviewed", {})
+
+if stage == 3:
     tip(
-        "Teach the system your voice, safely. Save your edited copies of "
-        "drafted letters (same file names) and upload them here. A change is "
-        "suggested only after it appears in 3 or more of your edits, only for "
-        "personality-level items (the closing phrase, a P.S. line), and it "
-        "takes effect only when a named person adopts it. Facts, amounts, and "
-        "claims can never be changed this way."
+        "Check every record by name before anything is finalized. Search or "
+        "scroll the full table, open any donor to read their letter and the "
+        "step-by-step ask calculation, and mark it reviewed. Records marked "
+        "mandatory must all be signed off before the final step unlocks."
     )
-    if STYLE_PROFILE.exists():
-        profile = json.loads(STYLE_PROFILE.read_text(encoding="utf-8"))
-        st.success(
-            "Active style profile: "
-            + ", ".join(f"{k} = \"{v}\"" for k, v in profile.items()
-                        if k in ("closing_phrase", "ps_line"))
-            + f" (approved by {profile.get('approved_by', 'unknown')} "
-              f"on {profile.get('approved_on', '?')})"
+
+    done_required = sum(1 for donor_id in required_ids if reviewed.get(donor_id))
+    st.markdown(
+        f"**Required reviews: {done_required} of {len(required_ids)} complete.** "
+        "Platinum letters, low-confidence records, and special routings are "
+        "always reviewed by a person."
+    )
+
+    search = st.text_input("Search donors by name", placeholder="start typing a name...")
+    table = manifest.copy()
+    table["reviewed"] = table["donor_id"].map(lambda d: "✔" if reviewed.get(d) else "")
+    if search.strip():
+        table = table[table["donor_name"].str.contains(search.strip(), case=False)]
+
+    st.dataframe(
+        table[["reviewed", "donor_name", "tier", "status", "ask_amount",
+               "confidence", "review_level", "warnings", "review_reasons",
+               "letter_file"]],
+        width="stretch", hide_index=True, height=280,
+    )
+
+    options = table["donor_name"].tolist()
+    if options:
+        chosen = st.selectbox("Open a donor record", options)
+        row = manifest[manifest["donor_name"] == chosen].iloc[0]
+        computed_row = result["computed"]
+        computed_row = computed_row[computed_row["donor_name"] == chosen].iloc[0]
+
+        left, right = st.columns([3, 2])
+        with left:
+            if row["letter_file"]:
+                file_name = Path(row["letter_file"]).name
+                preview_dir = Path(tempfile.gettempdir()) / "donor_review_previews"
+                preview_dir.mkdir(parents=True, exist_ok=True)
+                preview_path = preview_dir / file_name
+                preview_path.write_text(letters[file_name], encoding="utf-8")
+                st.iframe(preview_path, height=430)
+            else:
+                st.info(
+                    "No letter for this record, by policy: "
+                    + (row["review_reasons"] or "see review reasons")
+                )
+        with right:
+            st.markdown(
+                f"**{row['donor_name']}**  \n"
+                f"Tier {row['tier']}, {row['status']}  \n"
+                f"Ask: {'$' + row['ask_amount'] if row['ask_amount'] else 'none'}  \n"
+                f"Confidence {row['confidence']} ({row['confidence_band']}), "
+                f"review: {row['review_level']}"
+            )
+            if row["warnings"]:
+                st.warning(row["warnings"])
+            if row["review_reasons"]:
+                st.error(row["review_reasons"])
+            with st.expander("How this ask was calculated"):
+                for step in computed_row["ask_trace"].split(" -> "):
+                    st.markdown(f"- {step}")
+            checked = st.checkbox(
+                "Reviewed and approved" + (f" by {operator_name()}" if operator_name() else ""),
+                value=bool(reviewed.get(row["donor_id"])),
+                key=f"rev_{run_id}_{row['donor_id']}",
+                disabled=not operator_name(),
+                help="Enter your name in the sidebar first." if not operator_name() else None,
+            )
+            reviewed[row["donor_id"]] = checked
+
+    with st.expander("Teach the system your letter style"):
+        st.markdown(
+            "Edit drafted letters the way you like them (keep the file names), "
+            "upload the edited copies, and a change seen 3 or more times is "
+            "suggested for adoption. Style can affect the closing and a P.S. "
+            "line only, never amounts or claims."
         )
-    edited_files = st.file_uploader(
-        "Your edited letters (HTML, same file names as the drafts)",
-        type=["html"], accept_multiple_files=True,
-    )
-    if edited_files and st.button("Analyze my edits"):
-        st.session_state["style_report"] = learn_style_from_uploads(letters, edited_files)
-    style_report = st.session_state.get("style_report")
-    if style_report:
-        if "error" in style_report:
-            st.error(style_report["error"])
-        else:
-            st.write(f"Letter pairs compared: {style_report['letter_pairs_compared']}")
-            for note in style_report.get("manual_edits_detected", []):
-                st.warning(note)
-            for i, s in enumerate(style_report.get("suggestions", [])):
-                line = (f"**{s['field']}** = \"{s['value']}\" "
-                        f"(seen {s['evidence_edits']}x): {s['status']}")
-                if s["status"] == "eligible for adoption":
-                    c1, c2 = st.columns([3, 1])
-                    c1.markdown(line)
-                    approver = c2.text_input("Approved by", key=f"appr_{i}",
-                                             placeholder="Your name")
-                    if c2.button("Adopt", key=f"adopt_{i}", disabled=not approver.strip()):
-                        adopt_style(s["field"], s["value"], s["evidence_edits"],
-                                    approver.strip())
-                        st.session_state.pop("style_report", None)
-                        st.rerun()
-                else:
+        if STYLE_PROFILE.exists():
+            profile = json.loads(STYLE_PROFILE.read_text(encoding="utf-8"))
+            active = ", ".join(f"{k} = \"{v}\"" for k, v in profile.items()
+                               if k in ("closing_phrase", "ps_line") and v)
+            if active:
+                st.success(f"Active style: {active} (approved by "
+                           f"{profile.get('approved_by', 'unknown')})")
+        edited_files = st.file_uploader(
+            "Your edited letters (HTML)", type=["html"], accept_multiple_files=True,
+        )
+        if edited_files and st.button("Analyze my edits"):
+            st.session_state["style_report"] = learn_style_from_uploads(letters, edited_files)
+        style_report = st.session_state.get("style_report")
+        if style_report:
+            if "error" in style_report:
+                st.error(style_report["error"])
+            else:
+                for note in style_report.get("manual_edits_detected", []):
+                    st.warning(note)
+                for i, s in enumerate(style_report.get("suggestions", [])):
+                    line = (f"**{s['field']}** = \"{s['value']}\" "
+                            f"(seen {s['evidence_edits']}x): {s['status']}")
                     st.markdown(line)
+                    if s["status"] == "eligible for adoption":
+                        if st.button(f"Adopt (recorded as {operator_name() or '...'})",
+                                     key=f"adopt_{i}", disabled=not operator_name()):
+                            adopt_style(s["field"], s["value"],
+                                        s["evidence_edits"], operator_name())
+                            st.session_state.pop("style_report", None)
+                            st.rerun()
 
-with tab_log:
+    nav_back, nav_next = st.columns([1, 3])
+    if nav_back.button("Back to findings"):
+        go(2)
+        st.rerun()
+    if nav_next.button("Continue to finalize", type="primary"):
+        go(4)
+        st.rerun()
+    st.stop()
+
+# -------------------------------------------------------- stage 4: finalize --
+
+if stage == 4:
     tip(
-        "Run metrics show how long each stage took and what it produced; the "
-        "raw log below is exactly what the command line would show. Useful "
-        "when asking a technical colleague for help."
+        "The gate. Every mandatory-review record must be signed off before "
+        "export unlocks. The sign-off itself is written to the decision "
+        "history (docs/decision-log/) with your name, so how this batch was "
+        "cleared is always answerable. Even after export, nothing is sent: "
+        "delivery happens through your existing channels."
     )
+
+    pending = [donor_id for donor_id in required_ids if not reviewed.get(donor_id)]
+    letters_count = int((manifest["letter_file"] != "").sum())
+    st.markdown(
+        f"**Batch summary:** {report['rows_in']} rows in, "
+        f"{report['rows_validated']} validated, {report['rows_excepted']} held, "
+        f"{letters_count} letters drafted, {len(required_ids)} required reviews."
+    )
+
+    if pending:
+        names = manifest[manifest["donor_id"].isin(pending)]["donor_name"].tolist()
+        st.error(
+            f"{len(pending)} required review(s) outstanding: {', '.join(names)}. "
+            "Go back and sign each one off."
+        )
+        if st.button("Back to review"):
+            go(3)
+            st.rerun()
+        st.stop()
+
+    st.success("All required reviews are signed off.")
+
+    if not st.session_state.get("signoff_recorded"):
+        if not operator_name():
+            st.warning("Enter your name in the sidebar; the sign-off is recorded with a name.")
+        if st.button("Record sign-off in the decision history", type="primary",
+                     disabled=not operator_name()):
+            reviewed_names = manifest[
+                manifest["donor_id"].map(lambda d: bool(reviewed.get(d)))
+            ]["donor_name"].tolist()
+            entry = rules.record_decision(
+                DECISION_LOG,
+                title=(f"Review sign-off: {st.session_state['source']}, "
+                       f"{CAMPAIGN_LABELS.get(config['campaign_type'], config['campaign_type'])}"),
+                problem=(f"{len(required_ids)} record(s) required individual "
+                         "human review before this batch could be finalized."),
+                decision=("Each required record was opened and signed off: "
+                          + ", ".join(reviewed_names) + "."),
+                effect=(f"The batch ({letters_count} letters) is cleared for "
+                        "delivery through existing, human-controlled channels. "
+                        "Held records remain excluded until their data is fixed."),
+                approved_by=operator_name(),
+                source="review app, finalize step",
+            )
+            st.session_state["signoff_recorded"] = True
+            st.session_state["signoff_entry"] = str(entry)
+            st.rerun()
+    else:
+        st.success(f"Sign-off recorded: {st.session_state.get('signoff_entry', '')}")
+        d1, d2, d3 = st.columns(3)
+        d1.download_button(
+            "Review manifest (CSV)", export_manifest(manifest).to_csv(index=False),
+            file_name="manifest.csv", width="stretch",
+        )
+        d2.download_button(
+            "Held records (CSV)", exceptions.to_csv(index=False),
+            file_name="exceptions.csv", width="stretch",
+        )
+        d3.download_button(
+            "Letters + manifest (ZIP)", letters_zip(letters, manifest),
+            file_name="letters_for_review.zip", width="stretch",
+        )
+
+    if st.button("Back to review", key="back_from_finalize"):
+        go(3)
+        st.rerun()
+
+# ------------------------------------------------------------------ footer --
+
+with st.expander("Run log and metrics"):
     metrics = result.get("metrics", {})
     stage_rows = [
-        {"stage": stage, **values}
-        for stage, values in metrics.items()
+        {"stage": name, **values}
+        for name, values in metrics.items()
         if isinstance(values, dict)
     ]
     if stage_rows:
@@ -488,20 +669,6 @@ with tab_log:
             st.caption(f"Token cost: {metrics['token_cost']}.")
     st.code(result["logs"])
 
-st.divider()
-d1, d2, d3 = st.columns(3)
-d1.download_button(
-    "Download review manifest (CSV)", manifest.to_csv(index=False),
-    file_name="manifest.csv", width="stretch",
-)
-d2.download_button(
-    "Download data problems (CSV)", exceptions.to_csv(index=False),
-    file_name="exceptions.csv", width="stretch",
-)
-d3.download_button(
-    "Download letters + manifest (ZIP)", letters_zip(letters, manifest),
-    file_name="letters_for_review.zip", width="stretch",
-)
 st.caption(
     "Letters are drafts for human review. This tool never sends email and "
     "never changes your source data."

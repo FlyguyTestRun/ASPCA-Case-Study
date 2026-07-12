@@ -31,6 +31,12 @@ Three of my first-pass reactions deserved their own scrutiny, and a review that 
 - **"There is no semantic cache."** True, but a cache is the right fix for repeated interactive queries, which this workload does not have. A batch letter pipeline is fixed more fundamentally by removing the model from the hot path entirely, which is what the rebuild does. Reaching for a cache here would be treating the symptom. The cache has its place; see [scale-architecture.md](../scale-architecture.md) for when.
 - **"Where are the containers, the MCP servers, the orchestration?"** Missing architecture was the right instinct; prescribing heavy architecture is not. At 50 donors, an MCP server in front of a CSV file is bloat wearing a best-practice costume. The discipline of knowing when not to use an LLM extends to knowing when not to use infrastructure. Each of those components has a trigger condition that justifies it, documented in [scale-architecture.md](../scale-architecture.md).
 
+## The root cause, and what would improve the system most
+
+Strip the twelve problems back and they share one root: this was treated as a prompt engineering problem, and prompt engineering alone cannot fix it. A sharper prompt would still be doing arithmetic in a probability engine, still trusting labels the data contradicts, and still holding a database inside an instruction file. The durable improvement is structural: put deterministic logic around the data first, and let the model do only the work that is genuinely linguistic. That is my standing default whenever the work involves data, and doubly so for spreadsheets: spreadsheets are ledgers, and ledgers get logic, not pattern recognition.
+
+The audit that closed this review made the point concretely ([ADR 0019](../adr/0019-data-provenance-and-fixture-fidelity.md)): the original table's arithmetic was internally consistent all along. Its defects were categorical and temporal, the kinds of errors no amount of prompt wording reliably catches and thirty lines of validation code catches every time.
+
 ## Related documents
 
 - [Trap registry](../trap-registry.md): every planted defect in the case data, the mechanism that catches it, and the test that proves it.

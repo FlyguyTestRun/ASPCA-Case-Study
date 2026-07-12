@@ -253,6 +253,32 @@ def validate_letter_model(model: dict, schema: dict) -> list[str]:
     return errors
 
 
+def record_decision(log_dir, title: str, problem: str, decision: str,
+                    effect: str, approved_by: str, source: str) -> Path:
+    """Write a numbered, ADR-style decision record for an operational change.
+
+    This is the running system's audit history: correction batches, style
+    adoptions, and review sign-offs each leave one of these behind, so how
+    the system came to behave the way it does is always answerable. Authored
+    architecture ADRs live in docs/adr/; this log records operations.
+    """
+    log_path = Path(log_dir)
+    log_path.mkdir(parents=True, exist_ok=True)
+    existing = sorted(log_path.glob("[0-9][0-9][0-9][0-9]-*.md"))
+    number = (int(existing[-1].name[:4]) + 1) if existing else 1
+    entry_path = log_path / f"{number:04d}-{slugify(title)[:60]}.md"
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    entry_path.write_text(
+        f"# Decision {number:04d}: {title}\n\n"
+        f"Date: {today}. Approved by: {approved_by}. Source: {source}.\n\n"
+        f"## Problem\n\n{problem}\n\n"
+        f"## Decision\n\n{decision}\n\n"
+        f"## Effect going forward\n\n{effect}\n",
+        encoding="utf-8",
+    )
+    return entry_path
+
+
 def record_stage_metrics(workdir, stage: str, duration_ms: float, counts: dict) -> None:
     """Merge one pipeline stage's metrics into work/run_metrics.json.
 

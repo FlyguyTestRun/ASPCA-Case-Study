@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 work/
 feedback/
+deliverable/_work/
 .venv/
 venv/
 .DS_Store

@@ -125,7 +125,8 @@ def learn(originals_dir: Path, edited_dir: Path, workdir: Path) -> dict:
     return report
 
 
-def adopt(field: str, approved_by: str, workdir: Path, profile_path: Path) -> None:
+def adopt(field: str, approved_by: str, workdir: Path, profile_path: Path,
+          decision_log: Path | None = None) -> None:
     suggestions_path = workdir / "style_suggestions.json"
     if not suggestions_path.exists():
         print("ERROR: no style_suggestions.json; run the learning step first", file=sys.stderr)
@@ -159,6 +160,24 @@ def adopt(field: str, approved_by: str, workdir: Path, profile_path: Path) -> No
           f"(approved by {approved_by}, evidence {best['evidence_edits']} edits)")
     print(f"profile: {profile_path}")
 
+    if decision_log is not None:
+        entry = rules.record_decision(
+            decision_log,
+            title=f"Adopted letter style preference: {field}",
+            problem=("Reviewers repeatedly made the same edit to drafted "
+                     "letters, which meant the house style did not match the "
+                     "team's voice."),
+            decision=(f"{field} set to {best['value']!r}, observed identically "
+                      f"in {best['evidence_edits']} edited letters and passed "
+                      "through the style guardrails."),
+            effect=("Future letters use this preference automatically. It can "
+                    "only affect personality-level content and is re-checked "
+                    "against the guardrails on every generation run."),
+            approved_by=approved_by,
+            source="learn_style.py",
+        )
+        print(f"decision recorded: {entry}")
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -168,13 +187,17 @@ def main() -> None:
     parser.add_argument("--profile", type=Path, default=Path("feedback/style_profile.json"))
     parser.add_argument("--adopt", choices=["closing_phrase", "ps_line"])
     parser.add_argument("--approved-by", default="")
+    parser.add_argument("--decision-log", type=Path, default=None,
+                        help="directory for the decision history entry, "
+                             "for example docs/decision-log")
     args = parser.parse_args()
 
     if args.adopt:
         if not args.approved_by.strip():
             print("ERROR: --adopt requires --approved-by with a person's name", file=sys.stderr)
             raise SystemExit(2)
-        adopt(args.adopt, args.approved_by.strip(), args.workdir, args.profile)
+        adopt(args.adopt, args.approved_by.strip(), args.workdir, args.profile,
+              decision_log=args.decision_log)
     else:
         if not args.edited.exists():
             print(f"ERROR: edited-letters folder not found: {args.edited}", file=sys.stderr)

@@ -84,6 +84,78 @@ class TestCorrectionsLoop:
         assert "corrections applied: 1" in result.stdout
 
 
+class TestDecisionLog:
+    def test_entries_are_numbered_adr_style_records(self, tmp_path):
+        log_dir = tmp_path / "decision-log"
+        first = rules.record_decision(
+            log_dir, title="Test decision one", problem="A problem.",
+            decision="A decision.", effect="An effect.",
+            approved_by="Test Reviewer", source="unit test",
+        )
+        second = rules.record_decision(
+            log_dir, title="Test decision two", problem="P", decision="D",
+            effect="E", approved_by="Test Reviewer", source="unit test",
+        )
+        assert first.name.startswith("0001-") and second.name.startswith("0002-")
+        content = first.read_text(encoding="utf-8")
+        assert "# Decision 0001: Test decision one" in content
+        assert "Approved by: Test Reviewer" in content
+        for heading in ("## Problem", "## Decision", "## Effect going forward"):
+            assert heading in content
+
+    def test_apply_corrections_records_a_decision(self, tmp_path):
+        workdir = tmp_path / "work"
+        run_script("validate_input.py", "--input", str(FIXTURE),
+                   "--config", str(CONFIG), "--workdir", str(workdir))
+        log_dir = tmp_path / "decision-log"
+        result = run_script(
+            "apply_corrections.py", "--input", str(FIXTURE),
+            "--corrections", str(workdir / "corrections.csv"),
+            "--output", str(tmp_path / "corrected.csv"),
+            "--approved-by", "Test Reviewer", "--decision-log", str(log_dir),
+        )
+        assert result.returncode == 0
+        entries = list(log_dir.glob("0001-*.md"))
+        assert len(entries) == 1
+        content = entries[0].read_text(encoding="utf-8")
+        assert "Ruth Andersen" in content and "Approved by: Test Reviewer" in content
+
+    def test_no_decision_entry_without_explicit_log(self, tmp_path):
+        workdir = tmp_path / "work"
+        run_script("validate_input.py", "--input", str(FIXTURE),
+                   "--config", str(CONFIG), "--workdir", str(workdir))
+        result = run_script(
+            "apply_corrections.py", "--input", str(FIXTURE),
+            "--corrections", str(workdir / "corrections.csv"),
+            "--output", str(tmp_path / "corrected.csv"),
+        )
+        assert result.returncode == 0
+        assert "no decision entry recorded" in result.stdout
+
+    def test_style_adoption_records_a_decision(self, tmp_path):
+        originals = tmp_path / "originals"
+        edited = tmp_path / "edited"
+        workdir = tmp_path / "work"
+        originals.mkdir()
+        edited.mkdir()
+        for i in range(3):
+            (originals / f"d{i}.html").write_text(make_letter("With gratitude"), encoding="utf-8")
+            (edited / f"d{i}.html").write_text(make_letter("For the animals"), encoding="utf-8")
+        run_script("learn_style.py", "--originals", str(originals),
+                   "--edited", str(edited), "--workdir", str(workdir))
+        log_dir = tmp_path / "decision-log"
+        result = run_script(
+            "learn_style.py", "--adopt", "closing_phrase",
+            "--approved-by", "Test Reviewer", "--workdir", str(workdir),
+            "--profile", str(tmp_path / "profile.json"),
+            "--decision-log", str(log_dir),
+        )
+        assert result.returncode == 0
+        entries = list(log_dir.glob("0001-*.md"))
+        assert len(entries) == 1
+        assert "For the animals" in entries[0].read_text(encoding="utf-8")
+
+
 class TestStyleGuardrails:
     def test_clean_values_pass(self):
         clean, ignored = rules.sanitize_style_profile(

@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ASPCA Donor Outreach: Verified Data Review</title>
+<style>
+  :root {
+    --paper: #F1F3F0;
+    --paper-raised: #FFFFFF;
+    --ink: #14211D;
+    --ink-soft: #4B5750;
+    --accent: #0E6B5F;
+    --accent-soft: #DCEAE6;
+    --line: #D8DCD6;
+    --ok: #2E7D46;
+    --ok-soft: #E1EFE4;
+    --warn: #B4740E;
+    --warn-soft: #F5E8D2;
+    --crit: #B23B2E;
+    --crit-soft: #F6DEDA;
+    --radius: 6px;
+    --font-head: ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    --font-body: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #121815;
+      --paper-raised: #182019;
+      --ink: #E7EDE9;
+      --ink-soft: #9FB0A7;
+      --accent: #4FD9C0;
+      --accent-soft: #1B3A34;
+      --line: #26312C;
+      --ok: #4CAF6B;
+      --ok-soft: #1C3324;
+      --warn: #E0A73A;
+      --warn-soft: #3A2F16;
+      --crit: #E06753;
+      --crit-soft: #3B2119;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #121815;
+    --paper-raised: #182019;
+    --ink: #E7EDE9;
+    --ink-soft: #9FB0A7;
+    --accent: #4FD9C0;
+    --accent-soft: #1B3A34;
+    --line: #26312C;
+    --ok: #4CAF6B;
+    --ok-soft: #1C3324;
+    --warn: #E0A73A;
+    --warn-soft: #3A2F16;
+    --crit: #E06753;
+    --crit-soft: #3B2119;
+  }
+  :root[data-theme="light"] {
+    --paper: #F1F3F0;
+    --paper-raised: #FFFFFF;
+    --ink: #14211D;
+    --ink-soft: #4B5750;
+    --accent: #0E6B5F;
+    --accent-soft: #DCEAE6;
+    --line: #D8DCD6;
+    --ok: #2E7D46;
+    --ok-soft: #E1EFE4;
+    --warn: #B4740E;
+    --warn-soft: #F5E8D2;
+    --crit: #B23B2E;
+    --crit-soft: #F6DEDA;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.55;
+    padding: 0 0 4rem;
+  }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 clamp(1rem, 3vw, 2.5rem); }
+
+  /* ---------- masthead ---------- */
+  header.masthead {
+    border-bottom: 1px solid var(--line);
+    padding: 2.75rem 0 2rem;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  h1 {
+    font-family: var(--font-head);
+    font-weight: 500;
+    font-size: clamp(1.7rem, 3vw, 2.35rem);
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 0.4rem 0 0.65rem;
+  }
+  .thesis {
+    max-width: 62ch;
+    color: var(--ink-soft);
+    font-size: 1rem;
+  }
+  .stat-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+  .stat {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0.65rem 1rem;
+    min-width: 8.5rem;
+  }
+  .stat .n {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.5rem;
+    font-weight: 600;
+    display: block;
+  }
+  .stat .l {
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .stat.ok .n { color: var(--ok); }
+  .stat.crit .n { color: var(--crit); }
+  .stat.warn .n { color: var(--warn); }
+
+  /* ---------- section shell ---------- */
+  section { padding: 2.75rem 0; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: none; }
+  h2 {
+    font-family: var(--font-head);
+    font-weight: 500;
+    font-size: 1.4rem;
+    margin: 0 0 0.4rem;
+  }
+  .section-note {
+    color: var(--ink-soft);
+    max-width: 68ch;
+    margin: 0 0 1.5rem;
+  }
+
+  /* ---------- DAG ---------- */
+  .dag-scroll { overflow-x: auto; }
+  .dag-scroll svg { display: block; min-width: 760px; }
+  .dag-node rect { fill: var(--paper-raised); stroke: var(--line); stroke-width: 1.2; }
+  .dag-node.stage rect { stroke: var(--accent); stroke-width: 1.6; }
+  .dag-node text.title { font-family: var(--font-body); font-weight: 600; font-size: 12.5px; fill: var(--ink); }
+  .dag-node text.sub { font-family: var(--font-mono); font-size: 10.5px; fill: var(--ink-soft); }
+  .dag-arrow { stroke: var(--ink-soft); stroke-width: 1.4; fill: none; }
+  .dag-arrow-head { fill: var(--ink-soft); }
+  .dag-annot {
+    font-family: var(--font-body);
+    font-size: 11px;
+    fill: var(--crit);
+  }
+  .dag-legend { display: flex; gap: 1.5rem; margin-top: 0.9rem; flex-wrap: wrap; }
+  .dag-legend span { font-size: 0.8rem; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 0.4rem; }
+  .dag-legend i { width: 0.7rem; height: 0.7rem; border-radius: 2px; display: inline-block; }
+
+  .why-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .why-card {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 0.9rem 1rem;
+  }
+  .why-card h3 {
+    margin: 0 0 0.3rem;
+    font-size: 0.92rem;
+    font-family: var(--font-body);
+    font-weight: 600;
+  }
+  .why-card p { margin: 0; font-size: 0.85rem; color: var(--ink-soft); }
+
+  /* ---------- table toolbar ---------- */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  .toolbar input[type="search"], .toolbar select {
+    font-family: var(--font-body);
+    font-size: 0.88rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--paper-raised);
+    color: var(--ink);
+  }
+  .toolbar input[type="search"] { min-width: 220px; flex: 1 1 220px; }
+  .toolbar .spacer { flex: 1 1 auto; }
+  button {
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.5rem 0.9rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+  }
+  button.ghost {
+    background: transparent;
+    color: var(--accent);
+  }
+  button:hover { filter: brightness(1.06); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .table-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--paper-raised);
+  }
+  table { border-collapse: collapse; width: 100%; min-width: 980px; }
+  thead th {
+    position: sticky; top: 0;
+    background: var(--paper-raised);
+    text-align: left;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-soft);
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.87rem;
+    vertical-align: top;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr.is-edited { background: color-mix(in srgb, var(--accent-soft) 55%, transparent); }
+  td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+  td.editable { cursor: text; }
+  td.editable:hover { outline: 1px dashed var(--line); outline-offset: -3px; }
+  td.editable:focus { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--accent-soft); }
+
+  .pill {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .pill.crit { background: var(--crit-soft); color: var(--crit); }
+  .pill.muted { background: var(--line); color: var(--ink-soft); }
+
+  .row-detail-btn {
+    font-family: var(--font-mono);
+    background: none; border: none; color: var(--accent);
+    font-size: 0.78rem; padding: 0; cursor: pointer; font-weight: 600;
+  }
+  tr.detail-row td {
+    background: var(--accent-soft);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    white-space: pre-wrap;
+  }
+  tr.detail-row.hidden { display: none; }
+
+  .empty-state {
+    padding: 2rem; text-align: center; color: var(--ink-soft); font-size: 0.9rem;
+  }
+
+  footer.page-footer {
+    padding: 2.5rem 0 0;
+    color: var(--ink-soft);
+    font-size: 0.82rem;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .theme-toggle {
+    position: fixed;
+    top: 1rem; right: 1rem;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle color theme">Theme</button>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">JLL PDS Screening, ASPCA Case Study</div>
+    <h1>Donor outreach data, verified and ready for review</h1>
+    <p class="thesis">
+      Every record below passed through the same deterministic validation the
+      production pipeline runs: tiers recomputed from actual giving history,
+      dates checked against an explicit reference point, totals tied out.
+      Four records were held for correction, all four proven back to the
+      source file. Edit any cell to see the checks re-run live.
+    </p>
+    <div class="stat-row" id="statRow"></div>
+  </div>
+</header>
+
+<section id="pipeline">
+  <div class="wrap">
+    <h2>Why the pipeline is shaped this way</h2>
+    <p class="section-note">
+      The original skill asked a language model to hold the donor list, do
+      the arithmetic, and write the letter, all in one step, on faith. The
+      redesign puts a checkpoint at every place that step could go wrong,
+      before a model ever touches the data.
+    </p>
+    <div class="dag-scroll">
+      <svg viewBox="0 0 1120 260" role="img" aria-label="Pipeline diagram: donor file and campaign config flow through validate, calculate, and generate stages, with a human review gate before delivery.">
+        <defs>
+          <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 Z" class="dag-arrow-head" />
+          </marker>
+        </defs>
+
+        <!-- inputs -->
+        <g class="dag-node">
+          <rect x="10" y="30" width="120" height="46" rx="6" />
+          <text class="title" x="20" y="50">Donor file</text>
+          <text class="sub" x="20" y="65">CSV / XLSX</text>
+        </g>
+        <g class="dag-node">
+          <rect x="10" y="110" width="120" height="46" rx="6" />
+          <text class="title" x="20" y="130">Campaign config</text>
+          <text class="sub" x="20" y="145">JSON</text>
+        </g>
+
+        <line x1="130" y1="53" x2="185" y2="93" class="dag-arrow" marker-end="url(#arrowhead)" />
+        <line x1="130" y1="133" x2="185" y2="103" class="dag-arrow" marker-end="url(#arrowhead)" />
+
+        <!-- validate -->
+        <g class="dag-node stage">
+          <rect x="190" y="70" width="150" height="60" rx="6" />
+          <text class="title" x="200" y="93">1. Validate</text>
+          <text class="sub" x="200" y="108">recompute tier, dates,</text>
+          <text class="sub" x="200" y="121">totals from source data</text>
+        </g>
+        <text class="dag-annot" x="195" y="150">4 tier mismatches caught here</text>
+
+        <line x1="340" y1="100" x2="395" y2="100" class="dag-arrow" marker-end="url(#arrowhead)" />
+
+        <!-- calculate -->
+        <g class="dag-node stage">
+          <rect x="400" y="70" width="150" height="60" rx="6" />
+          <text class="title" x="410" y="93">2. Calculate</text>
+          <text class="sub" x="410" y="108">deterministic ask math,</text>
+          <text class="sub" x="410" y="121">confidence score</text>
+        </g>
+        <text class="dag-annot" x="405" y="150">no arithmetic in the model</text>
+
+        <line x1="550" y1="100" x2="605" y2="100" class="dag-arrow" marker-end="url(#arrowhead)" />
+
+        <!-- generate -->
+        <g class="dag-node stage">
+          <rect x="610" y="70" width="150" height="60" rx="6" />
+          <text class="title" x="620" y="93">3. Generate</text>
+          <text class="sub" x="620" y="108">letter model checked</text>
+          <text class="sub" x="620" y="121">against a schema, then HTML</text>
+        </g>
+        <text class="dag-annot" x="615" y="150">no unconfirmed claims possible</text>
+
+        <line x1="760" y1="100" x2="815" y2="100" class="dag-arrow" marker-end="url(#arrowhead)" />
+
+        <!-- gate -->
+        <g class="dag-node">
+          <rect x="820" y="65" width="140" height="70" rx="6" />
+          <text class="title" x="830" y="90">Human review</text>
+          <text class="sub" x="830" y="105">Platinum: always</text>
+          <text class="sub" x="830" y="118">below 0.90: held</text>
+        </g>
+
+        <line x1="960" y1="100" x2="1015" y2="100" class="dag-arrow" marker-end="url(#arrowhead)" />
+
+        <g class="dag-node">
+          <rect x="1020" y="75" width="90" height="50" rx="6" />
+          <text class="title" x="1028" y="97">Delivery</text>
+          <text class="sub" x="1028" y="112">by a person</text>
+        </g>
+
+        <!-- feedback loop -->
+        <path d="M 265,132 C 265,190 320,205 400,192" class="dag-arrow" marker-end="url(#arrowhead)" />
+        <text class="dag-annot" x="270" y="215">held records: approve a fix, re-run</text>
+      </svg>
+    </div>
+    <div class="dag-legend">
+      <span><i style="background:var(--accent)"></i>deterministic pipeline stage</span>
+      <span><i style="background:var(--crit)"></i>where a planted error is caught</span>
+    </div>
+
+    <div class="why-grid">
+      <div class="why-card">
+        <h3>Tiers are computed, not trusted</h3>
+        <p>Four donors were filed under a tier their own giving history contradicts. The gift list is the source of truth; the stated label is checked against it every run.</p>
+      </div>
+      <div class="why-card">
+        <h3>Dates need a reference point</h3>
+        <p>One donor's gift is dated a year later than the rest of the file. Every date rule now runs against an explicit as-of date instead of the day the batch happens to run.</p>
+      </div>
+      <div class="why-card">
+        <h3>Letters are data before they are HTML</h3>
+        <p>Each letter is checked against a schema, exactly one dollar amount, every field present, before any markup exists.</p>
+      </div>
+      <div class="why-card">
+        <h3>Confidence decides who reviews what</h3>
+        <p>Below 0.70 a record is blocked outright. Below 0.90 it is held for a person. Everything else still gets a Platinum-always check.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="data">
+  <div class="wrap">
+    <h2>Review or correct the dataset</h2>
+    <p class="section-note">
+      Fifty records, the full case-study file. Search by name, filter by
+      status, or edit any highlighted cell directly; edits re-run the same
+      tier and date logic the Python pipeline uses. Nothing here is sent
+      anywhere; use the export to carry corrections back to the source file.
+    </p>
+
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="Search donor name…" aria-label="Search donor name" />
+      <select id="statusFilter" aria-label="Filter by status">
+        <option value="all">All statuses</option>
+        <option value="crit">Needs correction</option>
+        <option value="warn">Held for review</option>
+        <option value="ok">Clean</option>
+      </select>
+      <div class="spacer"></div>
+      <button class="ghost" id="resetBtn" type="button">Reset edits</button>
+      <button id="exportBtn" type="button">Download corrected CSV</button>
+    </div>
+
+    <div class="table-scroll">
+      <table id="donorTable">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Donor</th>
+            <th>Region</th>
+            <th>Stated tier</th>
+            <th>Computed tier</th>
+            <th>Status</th>
+            <th>Largest gift</th>
+            <th>Lifetime</th>
+            <th>Last gift yr</th>
+            <th>Ask</th>
+            <th>Confidence</th>
+            <th>Flag</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+      <div class="empty-state" id="emptyState" hidden>No donors match this search or filter.</div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <footer class="page-footer">
+    <span>Generated from the validated pipeline output. As-of date 2024-06-30. Full source, tests, and decision records in the repository.</span>
+    <span id="editCount">0 edits pending</span>
+  </footer>
+</div>
+
+<script id="dataset" type="application/json">
+[{"donor_name": "Robert Svensson", "region": "Northeast", "volunteer": "No", "gifts": "2010:25000|2013:30000|2016:40000|2020:50000", "status": "validated", "stated_tier": "Platinum", "computed_tier": "Platinum", "tier_mismatch": false, "donor_status": "lapsed", "largest_gift": "50000.00", "lifetime_total": "145000.00", "last_gift_year": "2020", "ask_amount": "", "ask_trace": "lapsed major donor, ask calculation skipped by policy", "confidence": "0.90", "confidence_band": "pass", "review_level": "mandatory", "warnings": "file states active tier Platinum but donor is lapsed by date policy", "review_reasons": "lapsed Platinum donor: no automated letter, route to personal outreach"}, {"donor_name": "Earl Fontaine", "region": "Southeast", "volunteer": "Yes", "gifts": "2012:50000|2015:60000|2018:75000|2022:90000", "status": "validated", "stated_tier": "Platinum", "computed_tier": "Platinum", "tier_mismatch": false, "donor_status": "active", "largest_gift": "90000.00", "lifetime_total": "275000.00", "last_gift_year": "2022", "ask_amount": "43300", "ask_trace": "base: Platinum 40% of largest gift $90,000 = $36,000.00 -> volunteer uplift: +$100 = $36,100.00 -> emergency multiplier: x1.2 = $43,320.00 -> rounded once to nearest $50: $43,300", "confidence": "1.00", "confidence_band": "pass", "review_level": "mandatory", "warnings": "", "review_reasons": ""}, {"donor_name": "Walter Adeyemi", "region": "Midwest", "volunteer": "No", "gifts": "2014:20000|2017:25000|2020:30000", "status": "validated", "stated_tier": "Platinum", "computed_tier": "Platinum", "tier_mismatch": false, "donor_status": "lapsed", "largest_gift": "30000.00", "lifetime_total": "75000.00", "last_gift_year": "2020", "ask_amount": "", "ask_trace": "lapsed major donor, ask calculation skipped by policy", "confidence": "0.90", "confidence_band": "pass", "review_level": "mandatory", "warnings": "file states active tier Platinum but donor is lapsed by date policy", "review_reasons": "lapsed Platinum donor: no automated letter, route to personal outreach"}, {"donor_name": "Ralph Osei-Bonsu", "region": "West", "volunteer": "Yes", "gifts": "2013:40000|2016:50000|2019:65000|2023:80000", "status": "validated", "stated_tier": "Platinum", "computed_tier": "Platinum", "tier_mismatch": false, "donor_status": "active", "largest_gift": "80000.00", "lifetime_total": "235000.00", "last_gift_year": "2023", "ask_amount": "42350", "ask_trace": "base: Platinum 40% of largest gift $80,000 = $32,000.00 -> loyalty uplift: gave in 2023, x1.10 = $35,200.00 -> volunteer uplift: +$100 = $35,300.00 -> emergency multiplier: x1.2 = $42,360.00 -> rounded once to nearest $50: $42,350", "confidence": "1.00", "confidence_band": "pass", "review_level": "mandatory", "warnings": "", "review_reasons": ""}, {"donor_name": "Victor Ambrosius", "region": "International", "volunteer": "No", "gifts": "2011:30000|2014:35000|2017:45000|2021:55000", "status": "validated", "stated_tier": "Platinum", "computed_tier": "Platinum", "tier_mismatch": false, "donor_status": "active", "largest_gift": "55000.00", "lifetime_total": "165000.00", "last_gift_year": "2021", "ask_amount": "26400", "ask_trace": "base: Platinum 40% of largest gift $55,000 = $22,000.00 -> emergency multiplier: x1.2 = $26,400.00 -> rounded once to nearest $50: $26,400", "confidence": "1.00", "confidence_band": "pass", "review_level": "mandatory", "warnings": "", "review_reasons": ""}, {"donor_name": "James Whitfield", "region": "Northeast", "volunteer": "Yes", "gifts": "2015:5000|2017:8000|2019:10000|2022:12000", "status": "validated", "stated_tier": "Gold", "computed_tier": "Gold", "tier_mismatch": false, "donor_status": "active", "largest_gift": "12000.00", "lifetime_total": "35000.00", "last_gift_year": "2022", "ask_amount": "3700", "ask_trace": "base: Gold 25% of largest gift $12,000 = $3,000.00 -> volunteer uplift: +$100 = $3,100.00 -> emergency multiplier: x1.2 = $3,720.00 -> rounded once to nearest $50: $3,700", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Dorothy Callahan", "region": "Southeast", "volunteer": "No", "gifts": "2020:2000|2021:2500|2022:3000|2023:3500", "status": "validated", "stated_tier": "Gold", "computed_tier": "Gold", "tier_mismatch": false, "donor_status": "active", "largest_gift": "3500.00", "lifetime_total": "11000.00", "last_gift_year": "2023", "ask_amount": "1150", "ask_trace": "base: Gold 25% of largest gift $3,500 = $875.00 -> loyalty uplift: gave in 2023, x1.10 = $962.50 -> emergency multiplier: x1.2 = $1,155.00 -> rounded once to nearest $50: $1,150", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Deborah Sorenson", "region": "Midwest", "volunteer": "No", "gifts": "2016:4000|2018:5000|2020:6000|2022:7000", "status": "validated", "stated_tier": "Gold", "computed_tier": "Gold", "tier_mismatch": false, "donor_status": "active", "largest_gift": "7000.00", "lifetime_total": "22000.00", "last_gift_year": "2022", "ask_amount": "2100", "ask_trace": "base: Gold 25% of largest gift $7,000 = $1,750.00 -> emergency multiplier: x1.2 = $2,100.00 -> rounded once to nearest $50: $2,100", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Angela Petersen", "region": "West", "volunteer": "No", "gifts": "2017:3500|2019:4500|2021:5500", "status": "validated", "stated_tier": "Gold", "computed_tier": "Gold", "tier_mismatch": false, "donor_status": "active", "largest_gift": "5500.00", "lifetime_total": "13500.00", "last_gift_year": "2021", "ask_amount": "1650", "ask_trace": "base: Gold 25% of largest gift $5,500 = $1,375.00 -> emergency multiplier: x1.2 = $1,650.00 -> rounded once to nearest $50: $1,650", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Grace Thornton", "region": "International", "volunteer": "No", "gifts": "2020:2500|2021:3000|2022:3500|2023:4000", "status": "validated", "stated_tier": "Gold", "computed_tier": "Gold", "tier_mismatch": false, "donor_status": "active", "largest_gift": "4000.00", "lifetime_total": "13000.00", "last_gift_year": "2023", "ask_amount": "1300", "ask_trace": "base: Gold 25% of largest gift $4,000 = $1,000.00 -> loyalty uplift: gave in 2023, x1.10 = $1,100.00 -> emergency multiplier: x1.2 = $1,320.00 -> rounded once to nearest $50: $1,300", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Linda Petrov", "region": "Northeast", "volunteer": "No", "gifts": "2019:10000|2021:12500|2023:15000", "status": "validated", "stated_tier": "Gold", "computed_tier": "Gold", "tier_mismatch": false, "donor_status": "active", "largest_gift": "15000.00", "lifetime_total": "37500.00", "last_gift_year": "2023", "ask_amount": "4950", "ask_trace": "base: Gold 25% of largest gift $15,000 = $3,750.00 -> loyalty uplift: gave in 2023, x1.10 = $4,125.00 -> emergency multiplier: x1.2 = $4,950.00 -> rounded once to nearest $50: $4,950", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Helen Magnusson", "region": "Southeast", "volunteer": "No", "gifts": "2018:8000|2020:10000|2022:12000", "status": "validated", "stated_tier": "Gold", "computed_tier": "Gold", "tier_mismatch": false, "donor_status": "active", "largest_gift": "12000.00", "lifetime_total": "30000.00", "last_gift_year": "2022", "ask_amount": "3600", "ask_trace": "base: Gold 25% of largest gift $12,000 = $3,000.00 -> emergency multiplier: x1.2 = $3,600.00 -> rounded once to nearest $50: $3,600", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Maria Yamamoto", "region": "Midwest", "volunteer": "No", "gifts": "2018:6000|2020:7500|2022:9000", "status": "validated", "stated_tier": "Gold", "computed_tier": "Gold", "tier_mismatch": false, "donor_status": "active", "largest_gift": "9000.00", "lifetime_total": "22500.00", "last_gift_year": "2022", "ask_amount": "2700", "ask_trace": "base: Gold 25% of largest gift $9,000 = $2,250.00 -> emergency multiplier: x1.2 = $2,700.00 -> rounded once to nearest $50: $2,700", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Emma Bergstrom", "region": "West", "volunteer": "No", "gifts": "2019:5000|2021:6500|2023:8000", "status": "validated", "stated_tier": "Gold", "computed_tier": "Gold", "tier_mismatch": false, "donor_status": "active", "largest_gift": "8000.00", "lifetime_total": "19500.00", "last_gift_year": "2023", "ask_amount": "2650", "ask_trace": "base: Gold 25% of largest gift $8,000 = $2,000.00 -> loyalty uplift: gave in 2023, x1.10 = $2,200.00 -> emergency multiplier: x1.2 = $2,640.00 -> rounded once to nearest $50: $2,650", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Nora Bergqvist", "region": "International", "volunteer": "No", "gifts": "2018:9000|2020:11000|2022:13000", "status": "validated", "stated_tier": "Gold", "computed_tier": "Gold", "tier_mismatch": false, "donor_status": "active", "largest_gift": "13000.00", "lifetime_total": "33000.00", "last_gift_year": "2022", "ask_amount": "3900", "ask_trace": "base: Gold 25% of largest gift $13,000 = $3,250.00 -> emergency multiplier: x1.2 = $3,900.00 -> rounded once to nearest $50: $3,900", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Nancy Okafor", "region": "Southeast", "volunteer": "No", "gifts": "2017:5000|2019:6000|2021:7500", "status": "validated", "stated_tier": "Gold", "computed_tier": "Gold", "tier_mismatch": false, "donor_status": "active", "largest_gift": "7500.00", "lifetime_total": "18500.00", "last_gift_year": "2021", "ask_amount": "2250", "ask_trace": "base: Gold 25% of largest gift $7,500 = $1,875.00 -> emergency multiplier: x1.2 = $2,250.00 -> rounded once to nearest $50: $2,250", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Vera Johansson", "region": "International", "volunteer": "No", "gifts": "2017:7000|2019:8000|2021:9000", "status": "validated", "stated_tier": "Gold", "computed_tier": "Gold", "tier_mismatch": false, "donor_status": "active", "largest_gift": "9000.00", "lifetime_total": "24000.00", "last_gift_year": "2021", "ask_amount": "2700", "ask_trace": "base: Gold 25% of largest gift $9,000 = $2,250.00 -> emergency multiplier: x1.2 = $2,700.00 -> rounded once to nearest $50: $2,700", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Margaret Alcott", "region": "Northeast", "volunteer": "No", "gifts": "2019:500|2020:750|2021:1000|2022:1200|2023:1500", "status": "validated", "stated_tier": "Silver", "computed_tier": "Silver", "tier_mismatch": false, "donor_status": "active", "largest_gift": "1500.00", "lifetime_total": "4950.00", "last_gift_year": "2023", "ask_amount": "300", "ask_trace": "base: Silver 15% of largest gift $1,500 = $225.00 -> loyalty uplift: gave in 2023, x1.10 = $247.50 -> emergency multiplier: x1.2 = $297.00 -> rounded once to nearest $50: $300", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Harold Mensah", "region": "Southeast", "volunteer": "Yes", "gifts": "2021:1000|2022:1200|2023:1400", "status": "validated", "stated_tier": "Silver", "computed_tier": "Silver", "tier_mismatch": false, "donor_status": "active", "largest_gift": "1400.00", "lifetime_total": "3600.00", "last_gift_year": "2023", "ask_amount": "400", "ask_trace": "base: Silver 15% of largest gift $1,400 = $210.00 -> loyalty uplift: gave in 2023, x1.10 = $231.00 -> volunteer uplift: +$100 = $331.00 -> emergency multiplier: x1.2 = $397.20 -> rounded once to nearest $50: $400", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Barbara Jensen", "region": "Midwest", "volunteer": "No", "gifts": "2021:1000|2022:1500|2023:2000", "status": "validated", "stated_tier": "Silver", "computed_tier": "Silver", "tier_mismatch": false, "donor_status": "active", "largest_gift": "2000.00", "lifetime_total": "4500.00", "last_gift_year": "2023", "ask_amount": "400", "ask_trace": "base: Silver 15% of largest gift $2,000 = $300.00 -> loyalty uplift: gave in 2023, x1.10 = $330.00 -> emergency multiplier: x1.2 = $396.00 -> rounded once to nearest $50: $400", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Betty Nakagawa", "region": "West", "volunteer": "No", "gifts": "2021:1500|2022:2000|2023:2500", "status": "validated", "stated_tier": "Silver", "computed_tier": "Silver", "tier_mismatch": false, "donor_status": "active", "largest_gift": "2500.00", "lifetime_total": "6000.00", "last_gift_year": "2023", "ask_amount": "500", "ask_trace": "base: Silver 15% of largest gift $2,500 = $375.00 -> loyalty uplift: gave in 2023, x1.10 = $412.50 -> emergency multiplier: x1.2 = $495.00 -> rounded once to nearest $50: $500", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Ada Yamamoto-Pierce", "region": "International", "volunteer": "Yes", "gifts": "2020:3500|2021:4000|2022:4500|2023:5000", "status": "exception", "stated_tier": "Silver", "computed_tier": null, "tier_mismatch": true, "errors": "tier mismatch: file says Silver, lifetime giving of $17,000 computes to Gold", "suggested_correction": "set tier to Gold"}, {"donor_name": "Claire Oduya", "region": "Northeast", "volunteer": "Yes", "gifts": "2018:1500|2019:2000|2023:3000", "status": "validated", "stated_tier": "Silver", "computed_tier": "Silver", "tier_mismatch": false, "donor_status": "active", "largest_gift": "3000.00", "lifetime_total": "6500.00", "last_gift_year": "2023", "ask_amount": "700", "ask_trace": "base: Silver 15% of largest gift $3,000 = $450.00 -> loyalty uplift: gave in 2023, x1.10 = $495.00 -> volunteer uplift: +$100 = $595.00 -> emergency multiplier: x1.2 = $714.00 -> rounded once to nearest $50: $700", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Ruth Andersen", "region": "Southeast", "volunteer": "Yes", "gifts": "2019:3000|2020:4000|2021:5000|2022:6000|2023:7000", "status": "exception", "stated_tier": "Silver", "computed_tier": null, "tier_mismatch": true, "errors": "tier mismatch: file says Silver, lifetime giving of $25,000 computes to Gold", "suggested_correction": "set tier to Gold"}, {"donor_name": "Janet Okonkwo", "region": "Midwest", "volunteer": "Yes", "gifts": "2019:2000|2021:2500|2023:3000", "status": "validated", "stated_tier": "Silver", "computed_tier": "Silver", "tier_mismatch": false, "donor_status": "active", "largest_gift": "3000.00", "lifetime_total": "7500.00", "last_gift_year": "2023", "ask_amount": "700", "ask_trace": "base: Silver 15% of largest gift $3,000 = $450.00 -> loyalty uplift: gave in 2023, x1.10 = $495.00 -> volunteer uplift: +$100 = $595.00 -> emergency multiplier: x1.2 = $714.00 -> rounded once to nearest $50: $700", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Shirley Magnusdottir", "region": "West", "volunteer": "Yes", "gifts": "2020:4000|2021:5000|2022:6000|2023:7000", "status": "exception", "stated_tier": "Silver", "computed_tier": null, "tier_mismatch": true, "errors": "tier mismatch: file says Silver, lifetime giving of $22,000 computes to Gold", "suggested_correction": "set tier to Gold"}, {"donor_name": "Owen Oduya", "region": "International", "volunteer": "Yes", "gifts": "2021:800|2022:1000|2023:1200", "status": "validated", "stated_tier": "Silver", "computed_tier": "Silver", "tier_mismatch": false, "donor_status": "active", "largest_gift": "1200.00", "lifetime_total": "3000.00", "last_gift_year": "2023", "ask_amount": "350", "ask_trace": "base: Silver 15% of largest gift $1,200 = $180.00 -> loyalty uplift: gave in 2023, x1.10 = $198.00 -> volunteer uplift: +$100 = $298.00 -> emergency multiplier: x1.2 = $357.60 -> rounded once to nearest $50: $350", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Susan Nakamura", "region": "Northeast", "volunteer": "Yes", "gifts": "2020:500|2021:750|2022:1000|2023:1250|2024:1500", "status": "validated", "stated_tier": "Silver", "computed_tier": "Silver", "tier_mismatch": false, "donor_status": "active", "largest_gift": "1500.00", "lifetime_total": "5000.00", "last_gift_year": "2024", "ask_amount": "400", "ask_trace": "base: Silver 15% of largest gift $1,500 = $225.00 -> volunteer uplift: +$100 = $325.00 -> emergency multiplier: x1.2 = $390.00 -> rounded once to nearest $50: $400", "confidence": "0.90", "confidence_band": "pass", "review_level": "recommended", "warnings": "gift recorded in the as_of year 2024, confirm the as_of_date is intended (loyalty logic counts only the prior full year)", "review_reasons": ""}, {"donor_name": "Joe Iwamoto", "region": "West", "volunteer": "Yes", "gifts": "2020:750|2021:900|2022:1100|2023:1300", "status": "validated", "stated_tier": "Silver", "computed_tier": "Silver", "tier_mismatch": false, "donor_status": "active", "largest_gift": "1300.00", "lifetime_total": "4050.00", "last_gift_year": "2023", "ask_amount": "400", "ask_trace": "base: Silver 15% of largest gift $1,300 = $195.00 -> loyalty uplift: gave in 2023, x1.10 = $214.50 -> volunteer uplift: +$100 = $314.50 -> emergency multiplier: x1.2 = $377.40 -> rounded once to nearest $50: $400", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Michael Torres", "region": "Northeast", "volunteer": "No", "gifts": "2017:500|2018:600|2019:700", "status": "validated", "stated_tier": "Lapsed", "computed_tier": "Silver", "tier_mismatch": true, "donor_status": "lapsed", "largest_gift": "700.00", "lifetime_total": "1800.00", "last_gift_year": "2019", "ask_amount": "50", "ask_trace": "base: lapsed re-engagement flat $50 -> emergency multiplier: x1.2 = $60.00 -> rounded once to nearest $50: $50", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Charles Kimura", "region": "Southeast", "volunteer": "No", "gifts": "2015:400|2016:400|2017:400", "status": "validated", "stated_tier": "Lapsed", "computed_tier": "Silver", "tier_mismatch": true, "donor_status": "lapsed", "largest_gift": "400.00", "lifetime_total": "1200.00", "last_gift_year": "2017", "ask_amount": "50", "ask_trace": "base: lapsed re-engagement flat $50 -> emergency multiplier: x1.2 = $60.00 -> rounded once to nearest $50: $50", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Paul Achebe", "region": "Midwest", "volunteer": "No", "gifts": "2017:300|2018:300|2019:300", "status": "validated", "stated_tier": "Lapsed", "computed_tier": "Bronze", "tier_mismatch": true, "donor_status": "lapsed", "largest_gift": "300.00", "lifetime_total": "900.00", "last_gift_year": "2019", "ask_amount": "50", "ask_trace": "base: lapsed re-engagement flat $50 -> emergency multiplier: x1.2 = $60.00 -> rounded once to nearest $50: $50", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Frank Watanabe", "region": "West", "volunteer": "No", "gifts": "2016:350|2017:350|2018:350", "status": "validated", "stated_tier": "Lapsed", "computed_tier": "Silver", "tier_mismatch": true, "donor_status": "lapsed", "largest_gift": "350.00", "lifetime_total": "1050.00", "last_gift_year": "2018", "ask_amount": "50", "ask_trace": "base: lapsed re-engagement flat $50 -> emergency multiplier: x1.2 = $60.00 -> rounded once to nearest $50: $50", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Lars Achebe-Nielsen", "region": "International", "volunteer": "No", "gifts": "2015:400|2016:400|2017:400", "status": "validated", "stated_tier": "Lapsed", "computed_tier": "Silver", "tier_mismatch": true, "donor_status": "lapsed", "largest_gift": "400.00", "lifetime_total": "1200.00", "last_gift_year": "2017", "ask_amount": "50", "ask_trace": "base: lapsed re-engagement flat $50 -> emergency multiplier: x1.2 = $60.00 -> rounded once to nearest $50: $50", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Thomas Bergmann", "region": "Northeast", "volunteer": "No", "gifts": "2014:300|2015:300", "status": "validated", "stated_tier": "Lapsed", "computed_tier": "Bronze", "tier_mismatch": true, "donor_status": "lapsed", "largest_gift": "300.00", "lifetime_total": "600.00", "last_gift_year": "2015", "ask_amount": "50", "ask_trace": "base: lapsed re-engagement flat $50 -> emergency multiplier: x1.2 = $60.00 -> rounded once to nearest $50: $50", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Frank Dimitriou", "region": "Southeast", "volunteer": "No", "gifts": "2016:200|2017:200|2018:200", "status": "validated", "stated_tier": "Lapsed", "computed_tier": "Bronze", "tier_mismatch": true, "donor_status": "lapsed", "largest_gift": "200.00", "lifetime_total": "600.00", "last_gift_year": "2018", "ask_amount": "50", "ask_trace": "base: lapsed re-engagement flat $50 -> emergency multiplier: x1.2 = $60.00 -> rounded once to nearest $50: $50", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Raymond Volkov", "region": "Midwest", "volunteer": "No", "gifts": "2019:250|2020:250", "status": "validated", "stated_tier": "Lapsed", "computed_tier": "Bronze", "tier_mismatch": true, "donor_status": "lapsed", "largest_gift": "250.00", "lifetime_total": "500.00", "last_gift_year": "2020", "ask_amount": "50", "ask_trace": "base: lapsed re-engagement flat $50 -> emergency multiplier: x1.2 = $60.00 -> rounded once to nearest $50: $50", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Henry Obi", "region": "West", "volunteer": "No", "gifts": "2018:150|2019:200", "status": "validated", "stated_tier": "Lapsed", "computed_tier": "Bronze", "tier_mismatch": true, "donor_status": "lapsed", "largest_gift": "200.00", "lifetime_total": "350.00", "last_gift_year": "2019", "ask_amount": "50", "ask_trace": "base: lapsed re-engagement flat $50 -> emergency multiplier: x1.2 = $60.00 -> rounded once to nearest $50: $50", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Felix Mensah-Bonsu", "region": "International", "volunteer": "No", "gifts": "2019:300|2020:300", "status": "validated", "stated_tier": "Lapsed", "computed_tier": "Bronze", "tier_mismatch": true, "donor_status": "lapsed", "largest_gift": "300.00", "lifetime_total": "600.00", "last_gift_year": "2020", "ask_amount": "50", "ask_trace": "base: lapsed re-engagement flat $50 -> emergency multiplier: x1.2 = $60.00 -> rounded once to nearest $50: $50", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Patricia Huang", "region": "Northeast", "volunteer": "No", "gifts": "2021:200|2022:250", "status": "validated", "stated_tier": "Bronze", "computed_tier": "Bronze", "tier_mismatch": false, "donor_status": "active", "largest_gift": "250.00", "lifetime_total": "450.00", "last_gift_year": "2022", "ask_amount": "200", "ask_trace": "base: Bronze flat $150 -> emergency multiplier: x1.2 = $180.00 -> rounded once to nearest $50: $200", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Brenda Kowalski", "region": "Southeast", "volunteer": "No", "gifts": "2023:150", "status": "validated", "stated_tier": "Bronze", "computed_tier": "Bronze", "tier_mismatch": false, "donor_status": "active", "largest_gift": "150.00", "lifetime_total": "150.00", "last_gift_year": "2023", "ask_amount": "200", "ask_trace": "base: Bronze flat $150 -> loyalty uplift: gave in 2023, x1.10 = $165.00 -> emergency multiplier: x1.2 = $198.00 -> rounded once to nearest $50: $200", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Carol Eriksson", "region": "Midwest", "volunteer": "No", "gifts": "2023:100", "status": "validated", "stated_tier": "Bronze", "computed_tier": "Bronze", "tier_mismatch": false, "donor_status": "active", "largest_gift": "100.00", "lifetime_total": "100.00", "last_gift_year": "2023", "ask_amount": "200", "ask_trace": "base: Bronze flat $150 -> loyalty uplift: gave in 2023, x1.10 = $165.00 -> emergency multiplier: x1.2 = $198.00 -> rounded once to nearest $50: $200", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Kathy Lindberg", "region": "West", "volunteer": "No", "gifts": "2022:125", "status": "validated", "stated_tier": "Bronze", "computed_tier": "Bronze", "tier_mismatch": false, "donor_status": "active", "largest_gift": "125.00", "lifetime_total": "125.00", "last_gift_year": "2022", "ask_amount": "200", "ask_trace": "base: Bronze flat $150 -> emergency multiplier: x1.2 = $180.00 -> rounded once to nearest $50: $200", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Iris Kowalczyk", "region": "International", "volunteer": "No", "gifts": "2023:200", "status": "validated", "stated_tier": "Bronze", "computed_tier": "Bronze", "tier_mismatch": false, "donor_status": "active", "largest_gift": "200.00", "lifetime_total": "200.00", "last_gift_year": "2023", "ask_amount": "200", "ask_trace": "base: Bronze flat $150 -> loyalty uplift: gave in 2023, x1.10 = $165.00 -> emergency multiplier: x1.2 = $198.00 -> rounded once to nearest $50: $200", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "David Osei", "region": "Northeast", "volunteer": "No", "gifts": "2022:75|2023:100", "status": "validated", "stated_tier": "Bronze", "computed_tier": "Bronze", "tier_mismatch": false, "donor_status": "active", "largest_gift": "100.00", "lifetime_total": "175.00", "last_gift_year": "2023", "ask_amount": "200", "ask_trace": "base: Bronze flat $150 -> loyalty uplift: gave in 2023, x1.10 = $165.00 -> emergency multiplier: x1.2 = $198.00 -> rounded once to nearest $50: $200", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "George Nwosu", "region": "Southeast", "volunteer": "No", "gifts": "2022:50|2023:75", "status": "validated", "stated_tier": "Bronze", "computed_tier": "Bronze", "tier_mismatch": false, "donor_status": "active", "largest_gift": "75.00", "lifetime_total": "125.00", "last_gift_year": "2023", "ask_amount": "200", "ask_trace": "base: Bronze flat $150 -> loyalty uplift: gave in 2023, x1.10 = $165.00 -> emergency multiplier: x1.2 = $198.00 -> rounded once to nearest $50: $200", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Samuel Lindqvist", "region": "Midwest", "volunteer": "No", "gifts": "2022:50", "status": "validated", "stated_tier": "Bronze", "computed_tier": "Bronze", "tier_mismatch": false, "donor_status": "active", "largest_gift": "50.00", "lifetime_total": "50.00", "last_gift_year": "2022", "ask_amount": "200", "ask_trace": "base: Bronze flat $150 -> emergency multiplier: x1.2 = $180.00 -> rounded once to nearest $50: $200", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Jack Nkemdirim", "region": "West", "volunteer": "No", "gifts": "2023:50", "status": "validated", "stated_tier": "Bronze", "computed_tier": "Bronze", "tier_mismatch": false, "donor_status": "active", "largest_gift": "50.00", "lifetime_total": "50.00", "last_gift_year": "2023", "ask_amount": "200", "ask_trace": "base: Bronze flat $150 -> loyalty uplift: gave in 2023, x1.10 = $165.00 -> emergency multiplier: x1.2 = $198.00 -> rounded once to nearest $50: $200", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Igor Volkov", "region": "International", "volunteer": "No", "gifts": "2022:75", "status": "validated", "stated_tier": "Bronze", "computed_tier": "Bronze", "tier_mismatch": false, "donor_status": "active", "largest_gift": "75.00", "lifetime_total": "75.00", "last_gift_year": "2022", "ask_amount": "200", "ask_trace": "base: Bronze flat $150 -> emergency multiplier: x1.2 = $180.00 -> rounded once to nearest $50: $200", "confidence": "1.00", "confidence_band": "pass", "review_level": "none", "warnings": "", "review_reasons": ""}, {"donor_name": "Arthur Mwangi", "region": "Midwest", "volunteer": "Yes", "gifts": "2020:500|2021:600|2022:700|2023:800", "status": "exception", "stated_tier": "Bronze", "computed_tier": null, "tier_mismatch": true, "errors": "tier mismatch: file says Bronze, lifetime giving of $2,600 computes to Silver", "suggested_correction": "set tier to Silver"}]
+</script>
+
+<script>
+(function () {
+  "use strict";
+
+  var root = document.documentElement;
+  var toggle = document.getElementById("themeToggle");
+  toggle.addEventListener("click", function () {
+    var current = root.getAttribute("data-theme");
+    var next = current === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+  });
+
+  var RAW = JSON.parse(document.getElementById("dataset").textContent);
+
+  var TIER_MIN = [["Platinum", 50000], ["Gold", 10000], ["Silver", 1000], ["Bronze", 0]];
+  function computeTier(lifetime) {
+    for (var i = 0; i < TIER_MIN.length; i++) {
+      if (lifetime >= TIER_MIN[i][1]) return TIER_MIN[i][0];
+    }
+    return "Bronze";
+  }
+  function isLapsed(lastYear, asOfYear) { return (asOfYear - lastYear) > 3; }
+  var AS_OF_YEAR = 2024;
+
+  function parseGifts(text) {
+    var out = [];
+    (text || "").split("|").forEach(function (token) {
+      var m = /^(\d{4}):(\d+(?:\.\d+)?)$/.exec(token.trim());
+      if (m) out.push([parseInt(m[1], 10), parseFloat(m[2])]);
+    });
+    return out;
+  }
+
+  function money(n) {
+    return "$" + Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  }
+
+  // Working copy: edits recompute tier/status live, exactly mirroring
+  // donor_rules.compute_tier / is_lapsed in the Python pipeline.
+  var donors = RAW.map(function (d, i) {
+    var gifts = parseGifts(d.gifts);
+    var largest = gifts.length ? Math.max.apply(null, gifts.map(function (g) { return g[1]; })) : parseFloat(d.largest_gift) || 0;
+    var lifetime = gifts.length ? gifts.reduce(function (s, g) { return s + g[1]; }, 0) : parseFloat(d.lifetime_total) || 0;
+    var lastYear = gifts.length ? Math.max.apply(null, gifts.map(function (g) { return g[0]; })) : parseInt(d.last_gift_year, 10) || AS_OF_YEAR;
+    return {
+      id: i,
+      donor_name: d.donor_name,
+      region: d.region,
+      stated_tier: d.stated_tier,
+      volunteer: d.volunteer,
+      gifts: d.gifts,
+      largest_gift: largest,
+      lifetime_total: lifetime,
+      last_gift_year: lastYear,
+      ask_amount: d.ask_amount || "",
+      ask_trace: d.ask_trace || (d.errors ? "Held: " + d.errors : ""),
+      original_confidence: d.confidence || "",
+      original_band: d.confidence_band || (d.status === "exception" ? "fail" : ""),
+      edited: false,
+    };
+  });
+
+  function deriveState(row) {
+    // Mirrors validate_input.py exactly: "Lapsed" in the tier column is a
+    // status claim checked against the computed lapsed-by-date status, never
+    // compared to the financial tier. Platinum/Gold/Silver/Bronze are
+    // compared to the computed financial tier directly.
+    var computedTier = computeTier(row.lifetime_total);
+    var lapsed = isLapsed(row.last_gift_year, AS_OF_YEAR);
+    var mismatch = false;
+    if (row.stated_tier === "Lapsed") {
+      mismatch = !lapsed;
+    } else if (row.stated_tier) {
+      mismatch = row.stated_tier !== computedTier;
+    }
+    var flagLevel, flagText;
+    if (mismatch && row.stated_tier === "Lapsed") {
+      flagLevel = "crit";
+      flagText = "Filed Lapsed but last gift was " + row.last_gift_year + ", not lapsed by date policy";
+    } else if (mismatch) {
+      flagLevel = "crit";
+      flagText = "Tier mismatch: stated " + row.stated_tier + ", computed " + computedTier;
+    } else if (lapsed && (row.stated_tier === "Platinum" || row.stated_tier === "Gold")) {
+      flagLevel = "warn";
+      flagText = "Lapsed major donor: route to personal outreach";
+    } else if (row.original_band === "report" || row.edited) {
+      flagLevel = "warn";
+      flagText = row.edited ? "Edited: recheck before finalizing" : "Held for review";
+    } else {
+      flagLevel = "ok";
+      flagText = "Clean";
+    }
+    return { computedTier: computedTier, lapsed: lapsed, flagLevel: flagLevel, flagText: flagText };
+  }
+
+  var tbody = document.getElementById("tableBody");
+  var emptyState = document.getElementById("emptyState");
+  var statRow = document.getElementById("statRow");
+  var editCountEl = document.getElementById("editCount");
+
+  function pill(level, text) {
+    return '<span class="pill ' + level + '">' + text + "</span>";
+  }
+
+  function renderStats() {
+    var crit = 0, warn = 0, ok = 0;
+    donors.forEach(function (row) {
+      var s = deriveState(row);
+      if (s.flagLevel === "crit") crit++;
+      else if (s.flagLevel === "warn") warn++;
+      else ok++;
+    });
+    statRow.innerHTML =
+      '<div class="stat"><span class="n">' + donors.length + '</span><span class="l">Total records</span></div>' +
+      '<div class="stat ok"><span class="n">' + ok + '</span><span class="l">Clean</span></div>' +
+      '<div class="stat warn"><span class="n">' + warn + '</span><span class="l">Held for review</span></div>' +
+      '<div class="stat crit"><span class="n">' + crit + '</span><span class="l">Needs correction</span></div>';
+  }
+
+  function editedCount() {
+    return donors.filter(function (d) { return d.edited; }).length;
+  }
+
+  function renderRows() {
+    var query = document.getElementById("search").value.trim().toLowerCase();
+    var filter = document.getElementById("statusFilter").value;
+    tbody.innerHTML = "";
+    var shown = 0;
+
+    donors.forEach(function (row) {
+      if (query && row.donor_name.toLowerCase().indexOf(query) === -1) return;
+      var state = deriveState(row);
+      if (filter !== "all" && state.flagLevel !== filter) return;
+      shown++;
+
+      var tr = document.createElement("tr");
+      if (row.edited) tr.className = "is-edited";
+      tr.innerHTML =
+        '<td><button class="row-detail-btn" data-id="' + row.id + '" type="button">▸</button></td>' +
+        '<td>' + row.donor_name + '</td>' +
+        '<td>' + row.region + '</td>' +
+        '<td class="editable" contenteditable="true" data-field="stated_tier" data-id="' + row.id + '">' + row.stated_tier + '</td>' +
+        '<td>' + state.computedTier + '</td>' +
+        '<td>' + (state.lapsed ? pill("warn", "lapsed") : pill("ok", "active")) + '</td>' +
+        '<td class="num editable" contenteditable="true" data-field="largest_gift" data-id="' + row.id + '">' + money(row.largest_gift) + '</td>' +
+        '<td class="num">' + money(row.lifetime_total) + '</td>' +
+        '<td class="num editable" contenteditable="true" data-field="last_gift_year" data-id="' + row.id + '">' + row.last_gift_year + '</td>' +
+        '<td class="num">' + (row.ask_amount ? money(row.ask_amount) : "—") + '</td>' +
+        '<td class="num">' + (row.original_confidence || "—") + '</td>' +
+        '<td>' + pill(state.flagLevel, state.flagText) + '</td>';
+      tbody.appendChild(tr);
+
+      var detail = document.createElement("tr");
+      detail.className = "detail-row hidden";
+      detail.dataset.detailFor = row.id;
+      var td = document.createElement("td");
+      td.colSpan = 12;
+      td.textContent = row.ask_trace || "No calculation trace: this record was held before ask calculation.";
+      detail.appendChild(td);
+      tbody.appendChild(detail);
+    });
+
+    emptyState.hidden = shown > 0;
+    editCountEl.textContent = editedCount() + " edit" + (editedCount() === 1 ? "" : "s") + " pending";
+  }
+
+  tbody.addEventListener("click", function (e) {
+    var btn = e.target.closest(".row-detail-btn");
+    if (!btn) return;
+    var row = tbody.querySelector('.detail-row[data-detail-for="' + btn.dataset.id + '"]');
+    if (row) row.classList.toggle("hidden");
+    btn.textContent = row.classList.contains("hidden") ? "▸" : "▾";
+  });
+
+  tbody.addEventListener("blur", function (e) {
+    var cell = e.target.closest("td.editable");
+    if (!cell) return;
+    var id = parseInt(cell.dataset.id, 10);
+    var field = cell.dataset.field;
+    var row = donors[id];
+    var text = cell.textContent.trim();
+
+    if (field === "largest_gift") {
+      var n = parseFloat(text.replace(/[$,]/g, ""));
+      if (!isNaN(n)) { row.largest_gift = n; row.edited = true; }
+    } else if (field === "last_gift_year") {
+      var y = parseInt(text, 10);
+      if (!isNaN(y)) { row.last_gift_year = y; row.edited = true; }
+    } else if (field === "stated_tier") {
+      if (["Platinum", "Gold", "Silver", "Bronze"].indexOf(text) !== -1) {
+        row.stated_tier = text; row.edited = true;
+      }
+    }
+    renderStats();
+    renderRows();
+  }, true);
+
+  document.getElementById("search").addEventListener("input", renderRows);
+  document.getElementById("statusFilter").addEventListener("change", renderRows);
+
+  document.getElementById("resetBtn").addEventListener("click", function () {
+    donors = RAW.map(function (d, i) {
+      var gifts = parseGifts(d.gifts);
+      var largest = gifts.length ? Math.max.apply(null, gifts.map(function (g) { return g[1]; })) : parseFloat(d.largest_gift) || 0;
+      var lifetime = gifts.length ? gifts.reduce(function (s, g) { return s + g[1]; }, 0) : parseFloat(d.lifetime_total) || 0;
+      var lastYear = gifts.length ? Math.max.apply(null, gifts.map(function (g) { return g[0]; })) : parseInt(d.last_gift_year, 10) || AS_OF_YEAR;
+      return {
+        id: i, donor_name: d.donor_name, region: d.region, stated_tier: d.stated_tier,
+        volunteer: d.volunteer, gifts: d.gifts, largest_gift: largest, lifetime_total: lifetime,
+        last_gift_year: lastYear, ask_amount: d.ask_amount || "",
+        ask_trace: d.ask_trace || (d.errors ? "Held: " + d.errors : ""),
+        original_confidence: d.confidence || "", original_band: d.confidence_band || (d.status === "exception" ? "fail" : ""),
+        edited: false,
+      };
+    });
+    renderStats();
+    renderRows();
+  });
+
+  document.getElementById("exportBtn").addEventListener("click", function () {
+    var header = ["donor_name", "region", "tier", "largest_gift", "lifetime_total", "last_gift_year", "volunteer", "gifts"];
+    var lines = [header.join(",")];
+    donors.forEach(function (row) {
+      var state = deriveState(row);
+      var cells = [
+        row.donor_name, row.region, state.computedTier, row.largest_gift.toFixed(2),
+        row.lifetime_total.toFixed(2), row.last_gift_year, row.volunteer, row.gifts,
+      ].map(function (v) {
+        v = String(v);
+        return /[",]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+      });
+      lines.push(cells.join(","));
+    });
+    var blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "donors_corrected.csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  renderStats();
+  renderRows();
+})();
+</script>
+
+</body>
+</html>

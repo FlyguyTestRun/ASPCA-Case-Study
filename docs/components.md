@@ -44,9 +44,9 @@ Every moving part of this repository, explained twice: first in plain language f
 
 ### apply_corrections.py
 
-*Plain language:* applies the fixes a person approved and writes a corrected copy of the donor file, listing every change it made so the same fix can be made in the donor database.
+*Plain language:* applies the fixes a person approved and writes a corrected copy of the donor file, listing every change it made so the same fix can be made in the donor database. The approval can be recorded, with a name, in the decision history.
 
-*Engineering note:* consumes `corrections.csv`, applies approved rows (all, or `--rows` subset) to the input CSV by row number and field, prints an audit line per change. The resubmit half of the validation feedback loop.
+*Engineering note:* consumes `corrections.csv`, applies approved rows (all, or `--rows` subset) to the input CSV by row number and field, prints an audit line per change; `--decision-log` plus `--approved-by` writes an ADR-style entry recording the batch. The resubmit half of the validation feedback loop.
 
 ### calculate_ask.py
 
@@ -70,9 +70,9 @@ Every moving part of this repository, explained twice: first in plain language f
 
 ### app/review_app.py
 
-*Plain language:* the website version of all of the above for fundraising staff: upload a file, see every problem in plain words, approve fixes, preview letters, teach it your style, download everything. It never sends email and never changes your original file.
+*Plain language:* the website version of all of the above for fundraising staff, as a guided four-step path: upload the file, work through every finding in plain words (approving fixes as you go), review letters one donor at a time with search and a full table, then sign off. Export unlocks only after every required review is checked, and the sign-off is recorded with your name. It never sends email and never changes your original file.
 
-*Engineering note:* Streamlit; zero business logic; shells out to the same scripts in a temp dir per run; tabs for problems, fix-and-resubmit, review queue, ask traces, previews, style feedback, run log with metrics; tutorial mode and narrated audio walkthrough as toggles; 5 MB upload cap.
+*Engineering note:* Streamlit; zero business logic; shells out to the same scripts in a temp dir per run. Staged flow (upload, findings, review, finalize) with a review gate: mandatory-review records must be individually signed off before export. Persistent actions (correction batches, style adoptions, sign-offs) write entries to docs/decision-log/ and require an operator name. Per-donor detail shows the letter preview and the full ask-calculation trace. Tutorial mode and narrated audio walkthrough as toggles; 5 MB upload cap; run log and metrics in a footer expander.
 
 ### app/assets/
 
@@ -102,6 +102,6 @@ Every moving part of this repository, explained twice: first in plain language f
 
 ### docs/
 
-*Plain language:* the paper trail: the design review of the original skill, one decision record per correction, the trap catalog, this guide, and the plan for growing the system.
+*Plain language:* the paper trail: the design review of the original skill, one decision record per correction, the trap catalog, this guide, the plan for growing the system, and the running system's own decision history.
 
-*Engineering note:* [design-review/](design-review/README.md) (validity-checked problem analysis), [adr/](adr/) (18 decision records), [trap-registry.md](trap-registry.md), [scale-architecture.md](scale-architecture.md), and [HOURS.md](../HOURS.md) at the root for the engagement time log.
+*Engineering note:* [design-review/](design-review/README.md) (validity-checked problem analysis), [adr/](adr/) (20 authored decision records), [decision-log/](decision-log/) (operational decisions written by the system itself: corrections, style adoptions, sign-offs), [trap-registry.md](trap-registry.md), [scale-architecture.md](scale-architecture.md), and [HOURS.md](../HOURS.md) at the root for the engagement time log.
