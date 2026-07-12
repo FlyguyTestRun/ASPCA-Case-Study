@@ -79,6 +79,8 @@ flowchart LR
 
 Nothing in this system sends anything. The output of a run is a folder of drafts, a review checklist, and a set of structured artifacts (validation report, corrections, escalations, letter models, run metrics).
 
+Want to see it happen rather than read about it? [`docs/run-walkthrough.md`](docs/run-walkthrough.md) runs the real fixture through every stage above, stop by stop, with the actual command, the actual output, and a plain-language explanation alongside an engineering note at each one, readable at any technical level.
+
 ## Try it
 
 Requires Python 3.10 or newer. The pipeline uses only the standard library (`openpyxl` for Excel input); `pandas` and `streamlit` serve the review app, `pytest` the tests.
@@ -121,6 +123,7 @@ A completed run is committed in [output/](output/) as evidence: the [review mani
 | Document | What it is |
 |---|---|
 | [Assessment](assessment/ASSESSMENT.md) | The written case-study response: findings, impact, the rewrite, the production path |
+| [Run walkthrough](docs/run-walkthrough.md) | A real run, stop by stop: the command, the actual output, and a plain-language plus technical explanation at every stage |
 | [Requirements checklist](docs/requirements-checklist.md) | Every production-readiness control, named, hyperlinked to its implementation and its test |
 | [Design review](docs/design-review/README.md) | The original skill examined problem by problem, each with a validity verdict, the fix, and what changes at scale |
 | [Components guide](docs/components.md) | Every script, reference file, and interface explained for both non-technical readers and engineers |

@@ -2,6 +2,8 @@
 
 Every moving part of this repository, explained twice: first in plain language for anyone, then an engineering note for reviewers. Paths are relative to the repository root.
 
+To see these pieces working together against real data instead of reading about them in isolation, see [`docs/run-walkthrough.md`](run-walkthrough.md): a real run, stop by stop, with the actual command and output captured at every stage.
+
 ## The skill
 
 ### skill/charity-donor-outreach/SKILL.md
@@ -102,7 +104,7 @@ Every moving part of this repository, explained twice: first in plain language f
 
 ### tests/ and .github/workflows/ci.yml
 
-*Plain language:* 86 automatic checks that re-run on every change, including proof that every planted mistake is still caught and that no letter can make an unconfirmed claim.
+*Plain language:* 118 automatic checks that re-run on every change, including proof that every planted mistake is still caught and that no letter can make an unconfirmed claim.
 
 *Engineering note:* unit tests over the rules module (hand-calculated expectations), end-to-end pipeline tests over the fixture, corrections round-trip, style guardrails, schema rejection, formula-injection, escalation coverage. CI runs the suite plus the pipeline and asserts the trap catches, then uploads run evidence as artifacts.
 

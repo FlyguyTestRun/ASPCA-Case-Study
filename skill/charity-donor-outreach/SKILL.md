@@ -173,3 +173,9 @@ change is recorded.
 this skill satisfies (schema validation, input sanitization, audit logging,
 regression testing, versioned business rules, and more) directly to the file
 or test that proves it.
+
+## See it run
+
+`docs/run-walkthrough.md` runs this exact workflow against the fixture, stop
+by stop, with the real command and the real output captured at every stage,
+explained for any technical level.
