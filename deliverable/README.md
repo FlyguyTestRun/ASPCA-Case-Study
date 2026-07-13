@@ -55,10 +55,39 @@ by anyone regardless of their technical setup.
   generate stage, its output path, and a "Scripts on GitHub" panel links
   directly to `validate_input.py`, `calculate_ask.py`, `generate_letters.py`,
   and the shared `donor_rules.py`, not a description of them.
+- A "What this case study asked for" section states the brief's two tasks
+  plainly, and a "Same donor, two approaches" section computes one donor's
+  ask both ways from the same raw record: the original skill's own literal
+  steps against the rewrite's, a real dollar-figure difference, not an
+  assertion.
+- An architecture section explains what changed in `SKILL.md` (181 to 141
+  lines, every command byte-identical) and why a harness of deterministic
+  checks surrounds the model at all: a prompt only ever raises the odds a
+  model behaves correctly, and the checks convert bounded parts of that
+  probability into a guarantee, each one linked to its decision record. A
+  read-only panel below it displays the actual campaign configuration that
+  produced every number on the page, embedded at build time; it is read-only
+  because the browser never recomputes an ask, so an editable copy would
+  misrepresent what changing a value does.
+- A style-learning tool, ported from the review app: upload a set of edited
+  letters and it suggests a closing phrase or P.S. line once the same edit
+  appears identically across at least three of them, checked against the
+  same guardrails the Python side enforces (no banned words, no links, a
+  length cap), and downloadable as a `style_profile.json` for the real
+  pipeline to pick up.
+- A second donor file can be uploaded to merge into the currently loaded
+  list, matched by donor name (normalized for case and whitespace). A donor
+  present in both files with different data is held for review, exactly the
+  way a tier mismatch already is, with a side-by-side comparison and a
+  one-click resolution either way, never silently overwritten; a
+  punctuation-stripped secondary key flags likely near-duplicate spellings
+  of the same name for a person to look at. A session-local archive log
+  (browser storage only, never the file contents) records what was
+  downloaded earlier in the same browser.
 
 Nothing in the page sends data anywhere. It reads the embedded dataset (or
 an uploaded file), computes and stores in the browser, and writes a
-download to the local machine. Design records: [ADR 0029](../docs/adr/0029-browser-side-upload-clean-and-persist.md), [ADR 0030](../docs/adr/0030-letter-preview-and-date-display.md), [ADR 0035](../docs/adr/0035-html-review-gate-and-dated-archive.md).
+download to the local machine. Design records: [ADR 0029](../docs/adr/0029-browser-side-upload-clean-and-persist.md), [ADR 0030](../docs/adr/0030-letter-preview-and-date-display.md), [ADR 0035](../docs/adr/0035-html-review-gate-and-dated-archive.md), [ADR 0037](../docs/adr/0037-streamlit-capabilities-merged-into-the-deliverable.md).
 
 ## The guided walkthrough
 

@@ -1,0 +1,22 @@
+# ADR 0037: Merge the review app's portable capabilities into the standalone deliverable
+
+Status: accepted. Date: 2026-07-13.
+
+## Problem
+
+`app/review_app.py` (Streamlit) and `deliverable/donor-data-review.html` had diverged into two interfaces with overlapping but not identical capabilities, and the HTML file, the one artifact that actually travels to a reviewer without a server, was missing several things the Streamlit app had: a visible campaign configuration, the style-learning feedback loop, and any explanation of why the architecture around the model exists at all or what changed in `SKILL.md`. Separately, there was no way to grow the donor list over time: the deliverable could replace the loaded file with an upload, but not add to it, and repeated uploads of overlapping donor lists had no defined behavior.
+
+## Decision
+
+Four additions, each checked against a real constraint before being built:
+
+- **Architecture and SKILL.md explanation.** A new section states what changed in `SKILL.md` (181 to 141 lines, every command byte-identical) and explains "the harness" directly: a prompt only ever raises the odds a model behaves, and the five layers around it (double schema validation, deterministic arithmetic, the confidence rubric, mandatory human gates, the one bounded personalization exception) are what convert bounded parts of that probability into a guarantee, each linked to its ADR.
+- **Read-only campaign configuration.** The actual config that produced every number on the page, embedded at build time and displayed, explicitly labeled read-only: the browser never recomputes an ask, so an editable panel would misrepresent what changing a value does.
+- **Style learning, ported.** `learn_style.py`'s diff-and-threshold logic and `donor_rules.sanitize_style_profile`'s guardrails, reimplemented in JavaScript (a third implementation of that logic, after Python and this port, for the same reason the tier and date logic already has one: no Python runtime here). Adopting a suggestion downloads a `style_profile.json` for the user to place in the real pipeline; the browser cannot read or merge with whatever the real file already contains, so the download is documented as containing only the one newly adopted preference.
+- **A donor-list merge feature**, the one genuinely new capability. Uploading a second file merges it into the currently loaded list, matched by donor name (normalized for whitespace and case). A donor present in both files with different data is held for review exactly the way a tier mismatch already is, never silently overwritten; a comparison table in the row detail shows both versions side by side with a one-click resolution either way. A stricter, punctuation-stripped secondary key flags near-duplicate spellings across every distinct name (the same class of collision `donor_id`'s `slugify()` already guards against in the real pipeline, ADR 0022) for a person to look at, rather than silently treating two spellings as different people or the same one. Review and edit state carries over for any donor whose data did not actually change in the merge; only new, updated, or conflicting donors start review over, since their record just changed underneath them.
+
+A session-local archive log (localStorage metadata only, never the file contents) was added alongside the existing dated-archive download so a reviewer can see what was archived earlier in the same browser, clearly caveated as not a substitute for keeping the downloaded files themselves.
+
+## What this changes going forward
+
+Found one real bug while writing the style-learning test: the JavaScript port of `sanitize_style_profile` accepted an unknown key silently instead of reporting it, because the unknown-key rejection loop present in the Python original had been left out of the first draft of the port. Fixed and pinned by `test_sanitize_drops_unknown_keys`. `tests/test_deliverable_logic.py` gained `TestStyleLearningPort` (evidence threshold, guardrail rejection, unknown-key handling, body-edit detection) and `TestMergeDonorLists` (every merge outcome, near-duplicate detection, state preservation, conflict resolution) against fully synthetic, deliberately adversarial fixtures. Verified live in the browser end to end: uploaded three edited letters and adopted a closing-phrase suggestion, merged a file containing an unchanged donor, a data conflict, and a brand-new donor, and resolved the conflict, all with zero console errors.

@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE = ROOT / "deliverable" / "donor-data-review.template.html"
 OUTPUT = ROOT / "deliverable" / "donor-data-review.html"
 DATASET = ROOT / "deliverable" / "dataset.json"
+CAMPAIGN_CONFIG = ROOT / "deliverable" / "campaign_config_embed.json"
 AUDIO_CANDIDATES = [
     ROOT / "app" / "assets" / "tutorial_walkthrough.wav",
     ROOT / "app" / "assets" / "tutorial_walkthrough.mp3",
@@ -51,6 +52,12 @@ def main() -> None:
     # future letter template happens to contain.
     dataset_json = json.dumps(data).replace("</script", "<\\/script")
     html = html.replace("__DATASET_JSON__", dataset_json)
+
+    if "__CAMPAIGN_CONFIG_JSON__" not in html:
+        raise SystemExit("campaign config placeholder not found in template")
+    config_data = json.loads(CAMPAIGN_CONFIG.read_text(encoding="utf-8"))
+    config_json = json.dumps(config_data).replace("</script", "<\\/script")
+    html = html.replace("__CAMPAIGN_CONFIG_JSON__", config_json)
 
     if 'src="__AUDIO_DATA_URI__"' not in html:
         raise SystemExit("audio placeholder not found in template")

@@ -437,6 +437,238 @@ def run_zip_builder_in_node(html: str, output_path: Path) -> None:
     assert result.returncode == 0, f"Node execution failed:\n{result.stderr}"
 
 
+def run_style_learning_in_node(html: str) -> dict:
+    """Exercise learnStyle and sanitizeStyleProfile directly (both pure
+    functions, no DOM), the JavaScript port of learn_style.py and
+    donor_rules.sanitize_style_profile, against the same evidence-threshold
+    and guardrail cases the Python side is built around."""
+    dataset, script_block = extract_dataset_and_script(html)
+    inner = re.search(r"\(function \(\) \{(.*)\}\)\(\);", script_block, re.S).group(1)
+    inner = inner.replace('"use strict";', "")
+    inner = re.sub(
+        r'JSON\.parse\(document\.getElementById\("dataset"\)\.textContent\)',
+        "__RAW__", inner,
+    )
+    original = (
+        "<html><body>"
+        "<p>Dear Test Donor,</p>"
+        "<p>Thank you.</p>"
+        "<p>With gratitude,<br><strong>Jordan Ellis</strong></p>"
+        "</body></html>"
+    )
+
+    def edited_closing(name, closing):
+        return (
+            "<html><body>"
+            "<p>Dear " + name + ",</p>"
+            "<p>Thank you.</p>"
+            "<p>" + closing + ",<br><strong>Jordan Ellis</strong></p>"
+            "</body></html>"
+        )
+
+    harness = (
+        _STUB
+        + "var __RAW__ = " + json.dumps(dataset) + ";\n"
+        + inner
+        + """
+        var threeIdenticalEdits = [
+          { name: "A", original: """ + json.dumps(original) + """, edited: """ + json.dumps(edited_closing("A", "Warmly")) + """ },
+          { name: "B", original: """ + json.dumps(original) + """, edited: """ + json.dumps(edited_closing("B", "Warmly")) + """ },
+          { name: "C", original: """ + json.dumps(original) + """, edited: """ + json.dumps(edited_closing("C", "Warmly")) + """ },
+        ];
+        var twoIdenticalEdits = [
+          { name: "D", original: """ + json.dumps(original) + """, edited: """ + json.dumps(edited_closing("D", "Sincerely")) + """ },
+          { name: "E", original: """ + json.dumps(original) + """, edited: """ + json.dumps(edited_closing("E", "Sincerely")) + """ },
+        ];
+        var bannedWordEdits = [
+          { name: "F", original: """ + json.dumps(original) + """, edited: """ + json.dumps(edited_closing("F", "Your gift will be matched")) + """ },
+          { name: "G", original: """ + json.dumps(original) + """, edited: """ + json.dumps(edited_closing("G", "Your gift will be matched")) + """ },
+          { name: "H", original: """ + json.dumps(original) + """, edited: """ + json.dumps(edited_closing("H", "Your gift will be matched")) + """ },
+        ];
+        var bodyEditPair = [
+          { name: "I", original: """ + json.dumps(original) + """, edited: "<html><body><p>Dear I,</p><p>Completely different body text.</p><p>With gratitude,<br><strong>Jordan Ellis</strong></p></body></html>" },
+        ];
+
+        var eligibleReport = learnStyle(threeIdenticalEdits);
+        var insufficientReport = learnStyle(twoIdenticalEdits);
+        var bannedReport = learnStyle(bannedWordEdits);
+        var bodyEditReport = learnStyle(bodyEditPair);
+
+        var adoptResult = sanitizeStyleProfile({ closing_phrase: "Warmly" });
+        var rejectResult = sanitizeStyleProfile({ closing_phrase: "Your gift will be matched" });
+        var unknownKeyResult = sanitizeStyleProfile({ closing_phrase: "Warmly", ask_amount: "9999" });
+
+        console.log(JSON.stringify({
+          eligibleReport: eligibleReport,
+          insufficientReport: insufficientReport,
+          bannedReport: bannedReport,
+          bodyEditReport: bodyEditReport,
+          adoptClean: adoptResult[0],
+          rejectIgnored: rejectResult[1],
+          unknownKeyIgnored: unknownKeyResult[1],
+        }));
+        """
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        script_path = Path(tmp) / "harness.js"
+        script_path.write_text(harness, encoding="utf-8")
+        result = subprocess.run(["node", str(script_path)], capture_output=True, text=True)
+    assert result.returncode == 0, f"Node execution failed:\n{result.stderr}"
+    return json.loads(result.stdout.strip())
+
+
+@pytest.fixture(scope="module")
+def style_learning():
+    if not DELIVERABLE.exists():
+        pytest.skip("deliverable/donor-data-review.html not built")
+    html = DELIVERABLE.read_text(encoding="utf-8")
+    return run_style_learning_in_node(html)
+
+
+class TestStyleLearningPort:
+    """learnStyle and sanitizeStyleProfile are a second (now third, counting
+    the Python original and this JS port) implementation of learn_style.py's
+    logic, necessary because the browser has no Python runtime to call.
+    These pin it against the same three properties the Python version is
+    built around: a 3-identical-edits evidence threshold, the style
+    guardrails (no digits, no dollar signs, no HTML, no banned words), and
+    reporting (never learning) anything beyond the closing phrase or P.S.
+    line."""
+
+    def test_three_identical_edits_is_eligible_for_adoption(self, style_learning):
+        suggestions = style_learning["eligibleReport"]["suggestions"]
+        closing = next(s for s in suggestions if s["field"] == "closing_phrase")
+        assert closing["value"] == "Warmly"
+        assert closing["evidence_edits"] == 3
+        assert closing["status"] == "eligible for adoption"
+
+    def test_two_identical_edits_is_insufficient_evidence(self, style_learning):
+        suggestions = style_learning["insufficientReport"]["suggestions"]
+        closing = next(s for s in suggestions if s["field"] == "closing_phrase")
+        assert closing["evidence_edits"] == 2
+        assert "insufficient evidence" in closing["status"]
+
+    def test_banned_word_is_rejected_even_with_enough_evidence(self, style_learning):
+        suggestions = style_learning["bannedReport"]["suggestions"]
+        closing = next(s for s in suggestions if s["field"] == "closing_phrase")
+        assert closing["evidence_edits"] == 3
+        assert closing["status"] != "eligible for adoption"
+
+    def test_body_text_edit_is_reported_never_learned(self, style_learning):
+        assert len(style_learning["bodyEditReport"]["manual_edits_detected"]) == 1
+        assert style_learning["bodyEditReport"]["suggestions"] == []
+
+    def test_sanitize_accepts_a_clean_closing_phrase(self, style_learning):
+        assert style_learning["adoptClean"] == {"closing_phrase": "Warmly"}
+
+    def test_sanitize_rejects_matching_language(self, style_learning):
+        assert len(style_learning["rejectIgnored"]) == 1
+
+    def test_sanitize_drops_unknown_keys(self, style_learning):
+        assert any("ask_amount" in reason for reason in style_learning["unknownKeyIgnored"])
+
+
+def run_merge_in_node(html: str) -> dict:
+    """Exercise mergeDonorLists directly against a small, fully synthetic
+    fixture covering every outcome at once: an unchanged donor, a donor
+    whose data actually differs between files (a conflict, held for
+    review, never silently overwritten), a brand-new donor, a donor
+    missing from the new file, and a near-duplicate pair (a hyphen versus
+    a space, the same class of collision donor_id slugify() already
+    guards against in the real pipeline, ADR 0022) that differs at the
+    exact-match key but collapses to the same secondary key."""
+    dataset, script_block = extract_dataset_and_script(html)
+    inner = re.search(r"\(function \(\) \{(.*)\}\)\(\);", script_block, re.S).group(1)
+    inner = inner.replace('"use strict";', "")
+    inner = re.sub(
+        r'JSON\.parse\(document\.getElementById\("dataset"\)\.textContent\)',
+        "__RAW__", inner,
+    )
+    harness = (
+        _STUB
+        + "var __RAW__ = " + json.dumps(dataset) + ";\n"
+        + inner
+        + """
+        var existing = [
+          { id: 0, donor_name: "Alice Unchanged", title: "", stated_tier: "Gold", region: "West", gifts: "2020:5000", volunteer: "No", reviewed: true, edited: false, letter_html: "", no_letter_reason: "" },
+          { id: 1, donor_name: "Bob Conflict", title: "", stated_tier: "Silver", region: "East", gifts: "2020:2000", volunteer: "No", reviewed: true, edited: false, letter_html: "", no_letter_reason: "" },
+          { id: 2, donor_name: "Carol Missing", title: "", stated_tier: "Bronze", region: "North", gifts: "2019:500", volunteer: "No", reviewed: true, edited: false, letter_html: "", no_letter_reason: "" },
+          { id: 3, donor_name: "Jean-Paul Ostrowski", title: "", stated_tier: "Gold", region: "South", gifts: "2021:15000", volunteer: "Yes", reviewed: false, edited: false, letter_html: "", no_letter_reason: "" },
+        ];
+        var newRecords = [
+          { donor_name: "Alice Unchanged", title: "", tier: "Gold", region: "West", gifts: "2020:5000", volunteer: "No" },
+          { donor_name: "Bob Conflict", title: "", tier: "Silver", region: "East", gifts: "2020:2500", volunteer: "No" },
+          { donor_name: "Dave Added", title: "", tier: "Bronze", region: "West", gifts: "2022:100", volunteer: "No" },
+          { donor_name: "Jean Paul Ostrowski", title: "", tier: "Gold", region: "South", gifts: "2021:16000", volunteer: "Yes" },
+        ];
+        var result = mergeDonorLists(existing, newRecords);
+        var byName = {};
+        result.rows.forEach(function (r) { byName[r.donor_name] = r; });
+
+        var conflictRow = byName["Bob Conflict"];
+        resolveMergeConflict(conflictRow, true);
+
+        console.log(JSON.stringify({
+          summary: result.summary,
+          duplicateWarningCount: result.duplicateWarnings.length,
+          aliceReviewedPreserved: byName["Alice Unchanged"].reviewed,
+          bobReviewedReset: byName["Bob Conflict"].reviewed,
+          carolReviewedPreservedEvenThoughMissing: byName["Carol Missing"].reviewed,
+          carolFlaggedMissing: !!byName["Carol Missing"].mergeMissing,
+          daveFlaggedAdded: !!byName["Dave Added"].mergeAdded,
+          bobHadConflictData: true,
+          bobResolvedGifts: conflictRow.gifts,
+          bobResolvedEdited: conflictRow.edited,
+          bobConflictClearedAfterResolve: !conflictRow.mergeConflictNew,
+        }));
+        """
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        script_path = Path(tmp) / "harness.js"
+        script_path.write_text(harness, encoding="utf-8")
+        result = subprocess.run(["node", str(script_path)], capture_output=True, text=True)
+    assert result.returncode == 0, f"Node execution failed:\n{result.stderr}"
+    return json.loads(result.stdout.strip())
+
+
+@pytest.fixture(scope="module")
+def merge_result():
+    if not DELIVERABLE.exists():
+        pytest.skip("deliverable/donor-data-review.html not built")
+    html = DELIVERABLE.read_text(encoding="utf-8")
+    return run_merge_in_node(html)
+
+
+class TestMergeDonorLists:
+    """mergeDonorLists never silently overwrites: every outcome (unchanged,
+    conflict, added, missing, near-duplicate) is covered in one synthetic
+    fixture designed to hit all five at once."""
+
+    def test_summary_counts_every_outcome_correctly(self, merge_result):
+        assert merge_result["summary"] == {"unchanged": 1, "conflicts": 1, "added": 2, "missing": 2}
+
+    def test_near_duplicate_pair_is_flagged(self, merge_result):
+        assert merge_result["duplicateWarningCount"] == 1
+
+    def test_unchanged_donor_keeps_review_state(self, merge_result):
+        assert merge_result["aliceReviewedPreserved"] is True
+
+    def test_conflicting_donor_loses_review_state(self, merge_result):
+        assert merge_result["bobReviewedReset"] is False
+
+    def test_missing_donor_keeps_review_state(self, merge_result):
+        assert merge_result["carolReviewedPreservedEvenThoughMissing"] is True
+        assert merge_result["carolFlaggedMissing"] is True
+
+    def test_new_donor_is_flagged_added(self, merge_result):
+        assert merge_result["daveFlaggedAdded"] is True
+
+    def test_resolving_a_conflict_with_new_data_applies_it(self, merge_result):
+        assert merge_result["bobResolvedGifts"] == "2020:2500"
+        assert merge_result["bobResolvedEdited"] is True
+        assert merge_result["bobConflictClearedAfterResolve"] is True
+
+
 class TestZipWriterProducesARealArchive:
     """The archive-download button needs a real zip, built with no external
     library since this file must open standalone. Node builds it exactly

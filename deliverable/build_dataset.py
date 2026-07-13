@@ -108,6 +108,13 @@ def main():
     out_path.write_text(json.dumps(donors, indent=2), encoding="utf-8")
     print(f"wrote {len(donors)} donor records ({letters_written} with a generated letter) to {out_path}")
 
+    # The actual config that produced every number on the page, embedded
+    # read-only: the browser never recomputes an ask, so showing this
+    # config editable would imply a recalculation that does not happen.
+    config_path = ROOT / "deliverable" / "campaign_config_embed.json"
+    config_path.write_text(CONFIG.read_text(encoding="utf-8"), encoding="utf-8")
+    print(f"wrote the campaign config used for this run to {config_path}")
+
 
 if __name__ == "__main__":
     main()

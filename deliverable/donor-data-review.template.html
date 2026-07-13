@@ -154,6 +154,57 @@
     font-size: 1.4rem;
     margin: 0 0 0.4rem;
   }
+  section h3 {
+    font-family: var(--font-head);
+    font-weight: 500;
+    font-size: 1.1rem;
+    margin: 1.6rem 0 0.5rem;
+  }
+  section h3:first-of-type { margin-top: 0.5rem; }
+  .architecture-list { max-width: 72ch; }
+  .architecture-list li { margin-bottom: 0.6rem; }
+  .config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.9rem;
+    margin: 1.2rem 0 0;
+    max-width: 900px;
+  }
+  .config-grid div {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0.65rem 0.85rem;
+  }
+  .config-grid dt {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 0.25rem;
+  }
+  .config-grid dd {
+    margin: 0;
+    font-size: 0.9rem;
+    word-break: break-word;
+  }
+  .style-suggestions { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+  .style-suggestion {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0.65rem 0.9rem;
+    font-size: 0.88rem;
+  }
+  .style-suggestion.eligible { border-left: 3px solid var(--ok); }
+  .style-suggestion .adopt-style-btn { margin-left: 0.6rem; }
+  .style-manual-edits {
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    color: var(--warn);
+  }
+  .style-manual-edits p { margin: 0 0 0.4rem; }
   .section-note {
     color: var(--ink-soft);
     max-width: 68ch;
@@ -460,6 +511,29 @@
     margin-top: 0.5rem;
   }
 
+  .detail-merge-conflict {
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    color: var(--ink);
+    background: var(--crit-soft);
+    border-radius: var(--radius);
+    padding: 0.75rem 0.9rem;
+    margin-bottom: 0.7rem;
+  }
+  .merge-compare {
+    border-collapse: collapse;
+    margin: 0.6rem 0;
+    font-size: 0.82rem;
+    background: var(--paper-raised);
+  }
+  .merge-compare th, .merge-compare td {
+    border: 1px solid var(--line);
+    padding: 0.3rem 0.6rem;
+    text-align: left;
+  }
+  .merge-compare th { color: var(--ink-soft); font-weight: 600; }
+  .detail-merge-conflict button { margin: 0.4rem 0.4rem 0 0; }
+
   .empty-state {
     padding: 2rem; text-align: center; color: var(--ink-soft); font-size: 0.9rem;
   }
@@ -647,6 +721,66 @@
         <p><a href="../skill/charity-donor-outreach/SKILL.md">skill/charity-donor-outreach/</a>: three deterministic scripts plus one optional, bounded, off-by-default personalization step. Every number on this page is what that rewrite actually computed, not a mockup of what it should do.</p>
       </div>
     </div>
+  </div>
+</section>
+
+<section id="architecture">
+  <div class="wrap">
+    <h2>SKILL.md, and why there is a harness around it</h2>
+
+    <h3>What changed in SKILL.md</h3>
+    <p class="section-note">
+      <a href="../skill/charity-donor-outreach/SKILL.md">SKILL.md</a> is the
+      file an AI assistant reads to trigger this skill, not a design
+      document; every line in it costs context at the exact moment that
+      matters most. It went from 181 lines to 141. Every command is
+      unchanged, byte for byte, confirmed by diff. What was cut was
+      rationale, paragraphs explaining why a decision was made, collapsed to
+      one line pointing at the ADR that explains it in full. What stayed:
+      the pipeline table, every workflow step's exact command, the
+      personalization guardrails, and the five hard rules, because those are
+      what an agent actually has to follow to run this correctly, not
+      background on why. See <a href="../docs/adr/0036-skill-md-trimmed-to-operational-content.md">ADR 0036</a>.
+    </p>
+
+    <h3>Why there is a harness at all</h3>
+    <p class="section-note">
+      A well written prompt only ever raises the odds a model behaves. It
+      never guarantees it. That is not a criticism of prompting; it is a
+      description of what a prompt can and cannot do. A probabilistic system
+      asked to also be a database, a calculator, and a compliance officer
+      will eventually get one of those jobs wrong, quietly, in a way nobody
+      notices until a donor gets the wrong letter, which is exactly what the
+      <a href="#comparison">comparison above</a> demonstrates on a real
+      record.
+    </p>
+    <p class="section-note">
+      The harness is everything built around the one place a model is
+      allowed to touch language, converting as much of that probability into
+      a guarantee as the problem allows:
+    </p>
+    <ul class="compare-steps architecture-list">
+      <li><strong>Schema validation, twice.</strong> Once on the raw donor row (<code>donor.schema.json</code>) before any business rule runs, once on the assembled letter (<code>letter_schema.json</code>) before any HTML exists. <a href="../docs/adr/0024-donor-schema-validation-layer.md">ADR 0024</a>, <a href="../docs/adr/0017-letter-schema-validation.md">ADR 0017</a>.</li>
+      <li><strong>Deterministic arithmetic.</strong> Every tier, every date check, every ask amount is one fixed function, tested, never a model guess. <a href="../docs/adr/0002-verify-inputs-never-trust-them.md">ADR 0002</a>, <a href="../docs/adr/0003-deterministic-arithmetic.md">ADR 0003</a>.</li>
+      <li><strong>A confidence rubric that escalates instead of hiding.</strong> Below 0.70 blocked outright, below 0.90 held for a person, and every band emits a structured escalation event, so uncertainty is visible, not swallowed. <a href="../docs/adr/0011-confidence-scoring-feedback-loop.md">ADR 0011</a>.</li>
+      <li><strong>Mandatory human gates on the highest-stakes records.</strong> Every Platinum donor, always, regardless of confidence. <a href="../docs/adr/0009-file-outputs-and-review-gates.md">ADR 0009</a>.</li>
+      <li><strong>One bounded exception.</strong> An optional, off-by-default personalization step, walled off in its own versioned prompt file, that can only ever touch phrasing, never a fact, a number, or a claim. <a href="../docs/adr/0025-prompt-extracted-into-its-own-versioned-asset.md">ADR 0025</a>.</li>
+    </ul>
+    <p class="section-note">
+      Bounded probability where a guarantee is not possible, a guarantee
+      everywhere it is. That is the architecture, in one sentence.
+    </p>
+
+    <h3>The configuration behind these numbers</h3>
+    <p class="section-note">
+      Every ask amount and every letter on this page came from one run of
+      the real pipeline against this exact config, shown read-only here
+      since the browser never recomputes an ask: changing these values
+      would require re-running <code>calculate_ask.py</code> and
+      <code>generate_letters.py</code> in Python with a different file, not
+      editing them on this page.
+    </p>
+    <dl class="config-grid" id="configGrid"></dl>
   </div>
 </section>
 
@@ -871,12 +1005,37 @@
       <button class="ghost" id="restoreCleanedBtn" type="button" hidden>Restore saved dataset</button>
       <button class="ghost" id="clearSavedBtn" type="button" hidden>Clear saved data</button>
     </div>
+
+    <p class="section-note">
+      Growing the list, or updating it with a newer export: merge in a
+      second file rather than replacing the current one. Matched by donor
+      name; a donor in both files with different data is held for review,
+      never silently overwritten, the same treatment every mismatch on this
+      page already gets.
+    </p>
+    <div class="toolbar" id="mergeToolbar">
+      <input type="file" id="mergeUpload" accept=".csv" aria-label="Upload a file to merge in" />
+      <button class="ghost" id="mergeBtn" type="button">Merge into current list</button>
+    </div>
+    <p id="mergeStatus" role="status" aria-live="polite"></p>
+
     <div class="toolbar" id="archiveToolbar">
       <span class="section-note" style="margin:0;">Every mandatory-review record above must be checked off in the Reviewed column before this unlocks.</span>
       <div class="spacer"></div>
       <button id="archiveBtn" type="button" disabled>Download dated archive (ZIP)</button>
     </div>
     <p id="cleanStatus" role="status" aria-live="polite"></p>
+    <details id="archiveLogDetails" hidden>
+      <summary>Past archives created in this browser (<span id="archiveLogCount">0</span>)</summary>
+      <p class="section-note">
+        This list is a record kept in this browser only (not the files
+        themselves, just when and what was archived); it does not exist on
+        a different machine or in a different browser, and it is not a
+        substitute for keeping the downloaded ZIP files somewhere durable.
+      </p>
+      <ul id="archiveLogList" class="compare-steps"></ul>
+      <button class="ghost" id="clearArchiveLogBtn" type="button">Clear this list</button>
+    </details>
 
     <div class="table-scroll">
       <table id="donorTable">
@@ -895,6 +1054,7 @@
             <th>Confidence</th>
             <th>Review</th>
             <th>Flag</th>
+            <th>Merge</th>
             <th>Reviewed</th>
           </tr>
         </thead>
@@ -902,6 +1062,30 @@
       </table>
       <div class="empty-state" id="emptyState" hidden>No donors match this search or filter.</div>
     </div>
+  </div>
+</section>
+
+<section id="style">
+  <div class="wrap">
+    <h2>Teach the system your letter style</h2>
+    <p class="section-note">
+      Edit a drafted letter the way your team actually writes (keep the file
+      name), upload the edited copy here alongside its original, and a
+      change seen identically in three or more edited letters becomes a
+      suggestion. This is a second implementation of
+      <code>learn_style.py</code>'s diff and guardrail logic, in JavaScript,
+      for the same reason the tier and date logic has one: this page has no
+      Python runtime to call. Style can only ever change a letter's closing
+      phrase or its P.S. line, never a fact, a claim, or an amount; anything
+      else found in an edit is reported, never learned.
+    </p>
+    <div class="toolbar">
+      <input type="text" id="styleApprover" placeholder="Your name, for the adoption record" aria-label="Your name" />
+      <input type="file" id="styleUpload" accept=".html" multiple aria-label="Upload edited letters" />
+      <button id="analyzeStyleBtn" type="button">Analyze edits</button>
+    </div>
+    <p id="styleStatus" role="status" aria-live="polite"></p>
+    <div id="styleResults"></div>
   </div>
 </section>
 
@@ -914,6 +1098,10 @@
 
 <script id="dataset" type="application/json">
 __DATASET_JSON__
+</script>
+
+<script id="campaignConfig" type="application/json">
+__CAMPAIGN_CONFIG_JSON__
 </script>
 
 <script>
@@ -929,6 +1117,29 @@ __DATASET_JSON__
   });
 
   var RAW = JSON.parse(document.getElementById("dataset").textContent);
+  var CAMPAIGN_CONFIG = (function () {
+    try {
+      return JSON.parse(document.getElementById("campaignConfig").textContent);
+    } catch (err) {
+      return {};
+    }
+  })();
+
+  function renderConfigGrid() {
+    var grid = document.getElementById("configGrid");
+    if (!grid) return;
+    var fields = [
+      ["Campaign type", CAMPAIGN_CONFIG.campaign_type],
+      ["As-of date", CAMPAIGN_CONFIG.as_of_date],
+      ["Charity name", CAMPAIGN_CONFIG.charity_name],
+      ["Signer", CAMPAIGN_CONFIG.signer_name + ", " + CAMPAIGN_CONFIG.signer_title],
+      ["Donation URL", CAMPAIGN_CONFIG.donation_url],
+      ["Gift matching", CAMPAIGN_CONFIG.match_confirmed ? "Confirmed: " + (CAMPAIGN_CONFIG.match_sponsor || "sponsor not set") : "Not confirmed: matching language is structurally blocked"],
+    ];
+    grid.innerHTML = fields.map(function (pair) {
+      return "<div><dt>" + escapeHtml(pair[0]) + "</dt><dd>" + escapeHtml(pair[1]) + "</dd></div>";
+    }).join("");
+  }
 
   var TIER_MIN = [["Platinum", 50000], ["Gold", 10000], ["Silver", 1000], ["Bronze", 0]];
   function computeTier(lifetime) {
@@ -984,6 +1195,9 @@ __DATASET_JSON__
         no_letter_reason: d.no_letter_reason || "",
         edited: !!d.edited,
         reviewed: !!d.reviewed,
+        mergeConflictNew: d.mergeConflictNew || null,
+        mergeAdded: !!d.mergeAdded,
+        mergeMissing: !!d.mergeMissing,
       };
     });
   }
@@ -1077,6 +1291,13 @@ __DATASET_JSON__
     return "warn";
   }
 
+  function mergeStatusPill(row) {
+    if (row.mergeConflictNew) return pill("crit", "Conflict: held for review");
+    if (row.mergeAdded) return pill("ok", "Added by merge");
+    if (row.mergeMissing) return pill("warn", "Missing from upload");
+    return "";
+  }
+
   var tbody = document.getElementById("tableBody");
   var emptyState = document.getElementById("emptyState");
   var statRow = document.getElementById("statRow");
@@ -1130,6 +1351,22 @@ __DATASET_JSON__
   // so an edit made here is never mistaken for a letter that was actually
   // produced.
   function renderDetailCell(row) {
+    var mergeSection = "";
+    if (row.mergeConflictNew) {
+      var c = row.mergeConflictNew;
+      mergeSection = '<div class="detail-merge-conflict">' +
+        '<div class="detail-letter-label">Merge conflict: kept the current file\'s data, held for review</div>' +
+        '<table class="merge-compare"><tr><th></th><th>Current</th><th>Uploaded file</th></tr>' +
+        MERGE_COMPARE_FIELDS.map(function (f) {
+          return "<tr><td>" + escapeHtml(f) + "</td><td>" + escapeHtml(row[f]) + "</td><td>" + escapeHtml(c[f]) + "</td></tr>";
+        }).join("") +
+        "</table>" +
+        '<button type="button" class="ghost use-merge-new-btn" data-id="' + row.id + '">Use uploaded file\'s data instead</button>' +
+        '<button type="button" class="ghost keep-merge-old-btn" data-id="' + row.id + '">Keep current data</button>' +
+        "</div>";
+    } else if (row.mergeMissing) {
+      mergeSection = '<div class="detail-merge-conflict">This donor was in the previous list but not in the file you merged in most recently; kept as-is, flagged so it is not mistaken for a fresh, unreviewed record.</div>';
+    }
     // A correction made in this browser (row.edited) only ever updates the
     // review/flag state live; it never re-runs the real ask formula or
     // regenerates a letter, so the original held-reason and no-letter text
@@ -1144,7 +1381,7 @@ __DATASET_JSON__
         "generate_letters.py to produce the real, corrected output. Original hold reason: " +
         (row.ask_trace || "held pending correction") + "."
       : (row.ask_trace || "No calculation trace: this record was held before ask calculation.");
-    var trace = '<div class="detail-trace">' + escapeHtml(traceText) + "</div>";
+    var trace = mergeSection + '<div class="detail-trace">' + escapeHtml(traceText) + "</div>";
     if (row.letter_html) {
       return trace +
         '<div class="detail-letter">' +
@@ -1190,6 +1427,7 @@ __DATASET_JSON__
         '<td class="num">' + (row.original_confidence || "—") + '</td>' +
         '<td>' + pill(reviewPillLevel(review.level), review.text) + '</td>' +
         '<td>' + pill(state.flagLevel, state.flagText) + '</td>' +
+        '<td>' + mergeStatusPill(row) + '</td>' +
         '<td class="reviewed-cell"><input type="checkbox" class="review-check" data-id="' + row.id +
           '" ' + (row.reviewed ? "checked" : "") + ' aria-label="Mark ' + escapeAttr(row.donor_name) + ' reviewed"></td>';
       tbody.appendChild(tr);
@@ -1198,7 +1436,7 @@ __DATASET_JSON__
       detail.className = "detail-row hidden";
       detail.dataset.detailFor = row.id;
       var td = document.createElement("td");
-      td.colSpan = 14;
+      td.colSpan = 15;
       td.className = "detail-cell";
       td.innerHTML = renderDetailCell(row);
       detail.appendChild(td);
@@ -1230,11 +1468,20 @@ __DATASET_JSON__
   }
 
   tbody.addEventListener("click", function (e) {
-    var btn = e.target.closest(".row-detail-btn");
-    if (!btn) return;
-    var row = tbody.querySelector('.detail-row[data-detail-for="' + btn.dataset.id + '"]');
-    if (row) row.classList.toggle("hidden");
-    btn.textContent = row.classList.contains("hidden") ? "▸" : "▾";
+    var detailBtn = e.target.closest(".row-detail-btn");
+    if (detailBtn) {
+      var row = tbody.querySelector('.detail-row[data-detail-for="' + detailBtn.dataset.id + '"]');
+      if (row) row.classList.toggle("hidden");
+      detailBtn.textContent = row.classList.contains("hidden") ? "▸" : "▾";
+      return;
+    }
+    var resolveBtn = e.target.closest(".use-merge-new-btn, .keep-merge-old-btn");
+    if (resolveBtn) {
+      var id = parseInt(resolveBtn.dataset.id, 10);
+      resolveMergeConflict(donors[id], resolveBtn.classList.contains("use-merge-new-btn"));
+      renderStats();
+      renderRows();
+    }
   });
 
   tbody.addEventListener("change", function (e) {
@@ -1277,6 +1524,116 @@ __DATASET_JSON__
     renderRows();
     setCleanStatus("Reset to the built-in fifty-donor dataset.");
   });
+
+  // ============================================================
+  // Style learning: a JavaScript port of learn_style.py and
+  // donor_rules.sanitize_style_profile, for the same reason the tier and
+  // date logic has one (this page has no Python runtime to call). Style
+  // can only ever change a letter's closing phrase or its P.S. line, never
+  // a fact, a claim, or an amount; the guardrails below are what enforce
+  // that regardless of what an edited letter tries to introduce.
+  // ============================================================
+  var STYLE_BANNED_WORDS = ["match", "matched", "matching", "double", "doubled",
+    "guarantee", "guaranteed", "urgent", "urgently", "deadline", "wire", "cash"];
+  var STYLE_CLOSING_MAX_WORDS = 6;
+  var STYLE_PS_MAX_CHARS = 160;
+  var STYLE_MIN_EVIDENCE = 3;
+  var CLOSING_RE = /<p>([^<]{1,80}),<br>\s*<strong>/;
+  var PS_RE = /<p>P\.S\.\s*([\s\S]{1,300}?)<\/p>/i;
+
+  function extractClosing(html) {
+    var m = CLOSING_RE.exec(html);
+    return m ? m[1].trim() : null;
+  }
+
+  function extractPs(html) {
+    var m = PS_RE.exec(html);
+    return m ? m[1].trim() : null;
+  }
+
+  function visibleText(html) {
+    return html.replace(CLOSING_RE, "").replace(PS_RE, "")
+      .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  function styleTextOk(text, maxWords, maxChars) {
+    if (/\d/.test(text) || text.indexOf("$") !== -1 || text.indexOf("<") !== -1) return false;
+    if (maxWords && text.trim().split(/\s+/).length > maxWords) return false;
+    if (maxChars && text.length > maxChars) return false;
+    var words = (text.toLowerCase().match(/[a-z']+/g) || []);
+    for (var i = 0; i < words.length; i++) {
+      if (STYLE_BANNED_WORDS.indexOf(words[i]) !== -1) return false;
+    }
+    return true;
+  }
+
+  // Returns [clean, ignoredReasons], exactly mirroring
+  // donor_rules.sanitize_style_profile: unknown keys are dropped so a
+  // style profile can never smuggle a change to asks, claims, or anything
+  // else past these two fields.
+  function sanitizeStyleProfile(profile) {
+    var clean = {};
+    var ignored = [];
+    var closing = String(profile.closing_phrase || "").trim().replace(/,+$/, "");
+    if (closing) {
+      if (styleTextOk(closing, STYLE_CLOSING_MAX_WORDS, null)) clean.closing_phrase = closing;
+      else ignored.push("closing_phrase " + JSON.stringify(closing) + " rejected by style guardrails");
+    }
+    var psLine = String(profile.ps_line || "").trim();
+    if (psLine) {
+      if (styleTextOk(psLine, null, STYLE_PS_MAX_CHARS)) clean.ps_line = psLine;
+      else ignored.push("ps_line rejected by style guardrails");
+    }
+    var allowedKeys = ["closing_phrase", "ps_line", "approved_by", "approved_on", "evidence_edits"];
+    Object.keys(profile).forEach(function (key) {
+      if (allowedKeys.indexOf(key) === -1) ignored.push("unknown style key " + JSON.stringify(key) + " ignored");
+    });
+    return [clean, ignored];
+  }
+
+  // pairs: [{ name, original, edited }]. Mirrors learn_style.py's learn().
+  function learnStyle(pairs) {
+    var closings = {}, psLines = {};
+    var otherEdits = [];
+    pairs.forEach(function (pair) {
+      var origClosing = extractClosing(pair.original);
+      var newClosing = extractClosing(pair.edited);
+      if (newClosing && newClosing !== origClosing) closings[newClosing] = (closings[newClosing] || 0) + 1;
+
+      var origPs = extractPs(pair.original);
+      var newPs = extractPs(pair.edited);
+      if (newPs && newPs !== origPs) psLines[newPs] = (psLines[newPs] || 0) + 1;
+
+      if (visibleText(pair.original) !== visibleText(pair.edited)) {
+        otherEdits.push(pair.name + ": body text was edited; body language is policy-controlled, propose the change in references/policy.md");
+      }
+    });
+
+    function build(counter, field) {
+      return Object.keys(counter).sort(function (a, b) { return counter[b] - counter[a]; })
+        .map(function (value) {
+          var count = counter[value];
+          var entry = { field: field, value: value, evidence_edits: count };
+          if (count < STYLE_MIN_EVIDENCE) {
+            entry.status = "insufficient evidence (" + count + " of " + STYLE_MIN_EVIDENCE + " identical edits required)";
+          } else {
+            var result = sanitizeStyleProfile((function () { var o = {}; o[field] = value; return o; })());
+            entry.status = Object.keys(result[0]).length ? "eligible for adoption" : result[1][0];
+          }
+          return entry;
+        });
+    }
+
+    return {
+      letter_pairs_compared: pairs.length,
+      suggestions: build(closings, "closing_phrase").concat(build(psLines, "ps_line")),
+      manual_edits_detected: otherEdits,
+    };
+  }
+
+  function fileSlugForUpload(filename) {
+    return filename.replace(/\.html?$/i, "");
+  }
 
   // Mirrors donor_rules.csv_safe exactly: Excel and Sheets execute a cell
   // that begins with = + - or @, and this export is opened directly in
@@ -1357,16 +1714,66 @@ __DATASET_JSON__
   // and a manifest tying review status to each one, all in one timestamped
   // file. Gated behind renderReviewProgress() disabling this button until
   // every mandatory-review record is checked off.
+  // A lightweight log of past archive downloads, kept in this browser only
+  // (metadata: when, how many donors and letters, never the file contents
+  // themselves, to avoid bloating localStorage). Not a substitute for
+  // keeping the actual downloaded ZIP files somewhere durable.
+  var ARCHIVE_LOG_KEY = "aspca-donor-review:archive-log-v1";
+
+  function loadArchiveLog() {
+    try {
+      var raw = window.localStorage.getItem(ARCHIVE_LOG_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function appendArchiveLog(entry) {
+    var log = loadArchiveLog();
+    log.unshift(entry);
+    log = log.slice(0, 20);
+    try {
+      window.localStorage.setItem(ARCHIVE_LOG_KEY, JSON.stringify(log));
+    } catch (err) {
+      // Storage unavailable or full: the download already happened, so the
+      // archive itself is not lost, only this browser-local log entry.
+    }
+    renderArchiveLog();
+  }
+
+  function renderArchiveLog() {
+    var log = loadArchiveLog();
+    var details = document.getElementById("archiveLogDetails");
+    var list = document.getElementById("archiveLogList");
+    var count = document.getElementById("archiveLogCount");
+    if (!details || !list || !count) return;
+    details.hidden = log.length === 0;
+    count.textContent = log.length;
+    list.innerHTML = log.map(function (entry) {
+      return "<li>" + escapeHtml(entry.when) + ": " + entry.donorCount + " donors, " +
+        entry.letterCount + " letters, " + entry.reviewedCount + " reviewed</li>";
+    }).join("");
+  }
+
+  document.getElementById("clearArchiveLogBtn").addEventListener("click", function () {
+    try { window.localStorage.removeItem(ARCHIVE_LOG_KEY); } catch (err) {}
+    renderArchiveLog();
+  });
+
   document.getElementById("archiveBtn").addEventListener("click", function () {
     var now = new Date();
     var entries = [
       { name: "donors_cleaned.csv", content: buildCleanedCsvText() },
       { name: "manifest.csv", content: buildManifestCsvText() },
     ];
+    var letterCount = 0, reviewedCount = 0;
     donors.forEach(function (row) {
       if (row.letter_html) {
         entries.push({ name: "letters/" + fileSlug(row.donor_name) + ".html", content: row.letter_html });
+        letterCount++;
       }
+      if (row.reviewed) reviewedCount++;
     });
     var blob = buildZip(entries);
     var url = URL.createObjectURL(blob);
@@ -1374,14 +1781,116 @@ __DATASET_JSON__
     a.href = url; a.download = "donor-archive-" + timestampForFilename(now) + ".zip";
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    setCleanStatus("Archived " + donors.length + " records and " +
-      donors.filter(function (d) { return d.letter_html; }).length + " letters to a dated ZIP.");
+    appendArchiveLog({
+      when: now.toISOString().slice(0, 16).replace("T", " "),
+      donorCount: donors.length, letterCount: letterCount, reviewedCount: reviewedCount,
+    });
+    setCleanStatus("Archived " + donors.length + " records and " + letterCount + " letters to a dated ZIP.");
   });
 
   function setCleanStatus(text) {
     var el = document.getElementById("cleanStatus");
     if (el) el.textContent = text;
   }
+
+  function setStyleStatus(text) {
+    var el = document.getElementById("styleStatus");
+    if (el) el.textContent = text;
+  }
+
+  function renderStyleResults(report) {
+    var el = document.getElementById("styleResults");
+    var parts = [];
+    if (report.manual_edits_detected.length) {
+      parts.push('<div class="style-manual-edits">' + report.manual_edits_detected.map(function (n) {
+        return '<p>' + escapeHtml(n) + '</p>';
+      }).join("") + '</div>');
+    }
+    if (report.suggestions.length) {
+      parts.push('<div class="style-suggestions">' + report.suggestions.map(function (s, i) {
+        var eligible = s.status === "eligible for adoption";
+        return '<div class="style-suggestion' + (eligible ? ' eligible' : '') + '">' +
+          '<strong>' + escapeHtml(s.field) + '</strong> = &quot;' + escapeHtml(s.value) + '&quot; (seen ' + s.evidence_edits + 'x): ' + escapeHtml(s.status) +
+          (eligible ? ' <button type="button" class="ghost adopt-style-btn" data-index="' + i + '">Adopt</button>' : '') +
+          '</div>';
+      }).join("") + '</div>');
+    }
+    el.innerHTML = parts.join("") || '<p class="section-note">Nothing to show yet.</p>';
+  }
+
+  var currentStyleReport = null;
+
+  document.getElementById("analyzeStyleBtn").addEventListener("click", function () {
+    var files = document.getElementById("styleUpload").files;
+    if (!files || !files.length) {
+      setStyleStatus("Choose one or more edited letter files first.");
+      return;
+    }
+    var originalsBySlug = {};
+    donors.forEach(function (row) {
+      if (row.letter_html) originalsBySlug[fileSlug(row.donor_name)] = { name: row.donor_name, html: row.letter_html };
+    });
+    var fileList = Array.prototype.slice.call(files);
+    var uploaded = [];
+    var pending = fileList.length;
+    fileList.forEach(function (file) {
+      var reader = new FileReader();
+      function done() {
+        pending--;
+        if (pending === 0) finishStyleAnalysis(uploaded, originalsBySlug);
+      }
+      reader.onload = function () { uploaded.push({ filename: file.name, content: String(reader.result) }); done(); };
+      reader.onerror = done;
+      reader.readAsText(file);
+    });
+  });
+
+  function finishStyleAnalysis(uploadedFiles, originalsBySlug) {
+    var pairs = [];
+    var skipped = [];
+    uploadedFiles.forEach(function (f) {
+      var slug = fileSlugForUpload(f.filename);
+      var original = originalsBySlug[slug];
+      if (!original) { skipped.push(f.filename + ": no matching original, skipped"); return; }
+      pairs.push({ name: original.name, original: original.html, edited: f.content });
+    });
+    var report = learnStyle(pairs);
+    report.manual_edits_detected = skipped.concat(report.manual_edits_detected);
+    currentStyleReport = report;
+    renderStyleResults(report);
+    setStyleStatus(pairs.length + " letter pair(s) compared, " + skipped.length + " file(s) skipped (no matching original in this page's dataset).");
+  }
+
+  // Adopting downloads a standalone style_profile.json containing only this
+  // one preference: the browser cannot read whatever feedback/style_profile.json
+  // already has on disk, so an existing second adopted field has to be
+  // merged in by hand before the downloaded file replaces the real one.
+  document.getElementById("styleResults").addEventListener("click", function (e) {
+    var btn = e.target.closest(".adopt-style-btn");
+    if (!btn || !currentStyleReport) return;
+    var approver = document.getElementById("styleApprover").value.trim();
+    if (!approver) { setStyleStatus("Enter your name before adopting a style preference."); return; }
+    var suggestion = currentStyleReport.suggestions[parseInt(btn.dataset.index, 10)];
+    var toCheck = {};
+    toCheck[suggestion.field] = suggestion.value;
+    var result = sanitizeStyleProfile(toCheck);
+    var clean = result[0], ignored = result[1];
+    if (!clean[suggestion.field]) {
+      setStyleStatus("Adoption blocked by style guardrails: " + ignored.join("; "));
+      return;
+    }
+    clean.approved_by = approver;
+    clean.approved_on = new Date().toISOString().slice(0, 10);
+    clean.evidence_edits = suggestion.evidence_edits;
+    var blob = new Blob([JSON.stringify(clean, null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "style_profile.json";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setStyleStatus("Adopted " + suggestion.field + " = \"" + suggestion.value + "\" (approved by " + approver +
+      "). Downloaded style_profile.json with just this preference; merge in any other adopted field by hand before replacing the real file at feedback/style_profile.json.");
+  });
 
   // A small, dependency-free CSV parser matching the shape validate_input.py
   // accepts: quoted fields, embedded commas and quotes, header lowercased
@@ -1530,6 +2039,128 @@ __DATASET_JSON__
     return new Blob(parts, { type: "application/zip" });
   }
 
+  // ============================================================
+  // Merge a second donor file into the currently loaded list. Matched by
+  // donor name, normalized (trimmed, collapsed whitespace, lowercased); a
+  // stricter, punctuation-stripped key is also compared across every
+  // distinct name to catch near-duplicates (the same class of collision
+  // donor_id slugify() already guards against in the real pipeline, ADR
+  // 0022), flagged for a person rather than silently treated as two
+  // different people. A donor present in both files with different data
+  // is held for review exactly the way a tier mismatch is, never silently
+  // overwritten; only donors that are new, updated, or in conflict lose
+  // their prior review checkmark, since their record just changed.
+  // ============================================================
+  function normalizeNameKey(name) {
+    return String(name || "").trim().replace(/\s+/g, " ").toLowerCase();
+  }
+
+  function dedupeKey(name) {
+    return normalizeNameKey(name).replace(/[^a-z0-9]/g, "");
+  }
+
+  var MERGE_COMPARE_FIELDS = ["title", "stated_tier", "region", "gifts", "volunteer"];
+
+  function rowComparableValues(row) {
+    return MERGE_COMPARE_FIELDS.map(function (f) { return String(row[f] || ""); });
+  }
+
+  function recordComparableValues(record) {
+    var statedTier = record.stated_tier !== undefined && record.stated_tier !== null ? record.stated_tier : (record.tier || "");
+    return [String(record.title || ""), String(statedTier), String(record.region || ""),
+      String(record.gifts || ""), String(record.volunteer || "")];
+  }
+
+  function valuesEqual(a, b) {
+    for (var i = 0; i < a.length; i++) { if (a[i] !== b[i]) return false; }
+    return true;
+  }
+
+  function mergeDonorLists(existingDonors, newRawRecords) {
+    var existingByKey = {}, newByKey = {};
+    existingDonors.forEach(function (row) { existingByKey[normalizeNameKey(row.donor_name)] = row; });
+    newRawRecords.forEach(function (record) { newByKey[normalizeNameKey(record.donor_name)] = record; });
+
+    var allKeys = {};
+    Object.keys(existingByKey).forEach(function (k) { allKeys[k] = true; });
+    Object.keys(newByKey).forEach(function (k) { allKeys[k] = true; });
+    var bySecondary = {};
+    Object.keys(allKeys).forEach(function (k) {
+      var sec = dedupeKey(k);
+      if (!sec) return;
+      (bySecondary[sec] = bySecondary[sec] || []).push(k);
+    });
+    var duplicateWarnings = [];
+    Object.keys(bySecondary).forEach(function (sec) {
+      if (bySecondary[sec].length > 1) {
+        duplicateWarnings.push(bySecondary[sec].join(" / ") + " look like the same donor, spelled differently");
+      }
+    });
+
+    var resultRows = [];
+    var summary = { unchanged: 0, conflicts: 0, added: 0, missing: 0 };
+
+    Object.keys(existingByKey).forEach(function (key) {
+      var oldRow = existingByKey[key];
+      if (Object.prototype.hasOwnProperty.call(newByKey, key)) {
+        var newRecord = newByKey[key];
+        if (valuesEqual(rowComparableValues(oldRow), recordComparableValues(newRecord))) {
+          resultRows.push(oldRow);
+          summary.unchanged++;
+        } else {
+          var conflictRow = Object.assign({}, oldRow);
+          var newStatedTier = newRecord.stated_tier !== undefined && newRecord.stated_tier !== null ? newRecord.stated_tier : (newRecord.tier || "");
+          conflictRow.mergeConflictNew = {
+            title: newRecord.title || "", stated_tier: newStatedTier,
+            region: newRecord.region || "", gifts: newRecord.gifts || "", volunteer: newRecord.volunteer || "",
+          };
+          conflictRow.reviewed = false;
+          resultRows.push(conflictRow);
+          summary.conflicts++;
+        }
+      } else {
+        var missingRow = Object.assign({}, oldRow);
+        missingRow.mergeMissing = true;
+        resultRows.push(missingRow);
+        summary.missing++;
+      }
+    });
+
+    Object.keys(newByKey).forEach(function (key) {
+      if (!Object.prototype.hasOwnProperty.call(existingByKey, key)) {
+        var built = buildDonorsFromRecords([newByKey[key]])[0];
+        built.mergeAdded = true;
+        resultRows.push(built);
+        summary.added++;
+      }
+    });
+
+    resultRows.forEach(function (row, i) { row.id = i; });
+    return { rows: resultRows, summary: summary, duplicateWarnings: duplicateWarnings };
+  }
+
+  // Called from the "Use uploaded file's data instead" button in a
+  // conflicting row's detail panel: swaps in the new file's fields,
+  // exactly like approving a suggested correction.
+  function resolveMergeConflict(row, useNew) {
+    if (!row.mergeConflictNew) return;
+    if (useNew) {
+      row.title = row.mergeConflictNew.title;
+      row.stated_tier = row.mergeConflictNew.stated_tier;
+      row.region = row.mergeConflictNew.region;
+      row.gifts = row.mergeConflictNew.gifts;
+      row.volunteer = row.mergeConflictNew.volunteer;
+      var gifts = parseGifts(row.gifts);
+      if (gifts.length) {
+        row.largest_gift = Math.max.apply(null, gifts.map(function (g) { return g[1]; }));
+        row.lifetime_total = gifts.reduce(function (s, g) { return s + g[1]; }, 0);
+        row.last_gift_year = Math.max.apply(null, gifts.map(function (g) { return g[0]; }));
+      }
+      row.edited = true;
+    }
+    delete row.mergeConflictNew;
+  }
+
   // Approves every suggested tier correction at once, exactly what
   // apply_corrections.py does when a person runs it on the full
   // corrections file: set the stated field to the computed value. Nothing
@@ -1558,7 +2189,8 @@ __DATASET_JSON__
         ask_trace: d.ask_trace, confidence: d.original_confidence,
         confidence_band: d.original_band, letter_html: d.letter_html,
         no_letter_reason: d.no_letter_reason, edited: d.edited,
-        reviewed: d.reviewed,
+        reviewed: d.reviewed, mergeConflictNew: d.mergeConflictNew,
+        mergeAdded: d.mergeAdded, mergeMissing: d.mergeMissing,
       };
     });
   }
@@ -1648,6 +2280,38 @@ __DATASET_JSON__
     reader.readAsText(file);
   });
 
+  function setMergeStatus(text) {
+    var el = document.getElementById("mergeStatus");
+    if (el) el.textContent = text;
+  }
+
+  document.getElementById("mergeBtn").addEventListener("click", function () {
+    var file = document.getElementById("mergeUpload").files && document.getElementById("mergeUpload").files[0];
+    if (!file) { setMergeStatus("Choose a file to merge in first."); return; }
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var records = parseCsv(String(reader.result));
+        if (!records.length) throw new Error("no donor rows found in the file");
+        var result = mergeDonorLists(donors, records);
+        donors = result.rows;
+        renderStats();
+        renderRows();
+        var summary = result.summary;
+        var message = summary.unchanged + " unchanged, " + summary.added + " added, " +
+          summary.conflicts + " conflict(s) held for review, " + summary.missing + " missing from the new file.";
+        if (result.duplicateWarnings.length) {
+          message += " Possible duplicates: " + result.duplicateWarnings.join("; ") + ".";
+        }
+        setMergeStatus(message);
+      } catch (err) {
+        setMergeStatus("Could not merge " + file.name + ": " + err.message);
+      }
+    };
+    reader.onerror = function () { setMergeStatus("Could not read " + file.name + "."); };
+    reader.readAsText(file);
+  });
+
   document.getElementById("applyCorrectionsBtn").addEventListener("click", function () {
     var applied = applySuggestedCorrections();
     renderStats();
@@ -1666,6 +2330,8 @@ __DATASET_JSON__
   document.getElementById("clearSavedBtn").addEventListener("click", clearSavedDataset);
 
   updateCleanControlsVisibility();
+  renderConfigGrid();
+  renderArchiveLog();
   renderStats();
   renderRows();
 
