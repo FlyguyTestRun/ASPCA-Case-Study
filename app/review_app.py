@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -108,6 +109,23 @@ def operator_name() -> str:
     return (st.session_state.get("operator") or "").strip()
 
 
+_MD_SPECIAL = re.compile(r"([\\`*_{}\[\]()#+.!|>~-])")
+
+
+def md_escape(text) -> str:
+    """Escape markdown-significant characters in donor-supplied free text
+    before it is interpolated into st.markdown/st.error/st.warning.
+
+    Unlike tier, status, or review_level (schema-constrained enums checked
+    in validate_input.py before a row ever reaches this app), donor_name is
+    arbitrary text straight from the uploaded file. Streamlit's default
+    unsafe_allow_html=False already blocks raw HTML, but markdown link
+    syntax is still parsed, so an unescaped name could render as a link or
+    otherwise distort the layout.
+    """
+    return _MD_SPECIAL.sub(r"\\\1", str(text))
+
+
 def run_pipeline(donor_bytes: bytes, donor_suffix: str, config: dict,
                   status=None) -> dict:
     """Run validate -> calculate -> generate in a temp dir, return all outputs.
@@ -170,7 +188,15 @@ def run_pipeline(donor_bytes: bytes, donor_suffix: str, config: dict,
 
 def apply_corrections_to_bytes(donor_bytes: bytes, donor_suffix: str,
                                approved: pd.DataFrame) -> bytes:
-    """Apply approved corrections to the uploaded file, return corrected CSV bytes."""
+    """Apply approved corrections to the uploaded file, return corrected CSV bytes.
+
+    Every field is passed through csv_safe before writing: the corrections
+    only touch the field being fixed (usually tier), so every other column,
+    including donor_name, is carried through from whatever the uploaded
+    file said, unexamined. This file is also handed straight back to Excel
+    via a download button, exactly the fundraising-staff-facing CSV export
+    csv_safe already protects everywhere else in the pipeline (ADR 0018).
+    """
     if donor_suffix in (".xlsx", ".xls"):
         frame = pd.read_excel(io.BytesIO(donor_bytes), dtype=str).fillna("")
     else:
@@ -180,6 +206,7 @@ def apply_corrections_to_bytes(donor_bytes: bytes, donor_suffix: str,
         row_index = int(fix["row_number"]) - 2  # data rows start at file row 2
         if 0 <= row_index < len(frame) and fix["field"] in frame.columns:
             frame.loc[row_index, fix["field"]] = fix["suggested_value"]
+    frame = frame.map(rules.csv_safe)
     return frame.to_csv(index=False).encode("utf-8")
 
 
@@ -649,7 +676,7 @@ if stage == 3:
                 )
         with right:
             st.markdown(
-                f"**{row['donor_name']}**  \n"
+                f"**{md_escape(row['donor_name'])}**  \n"
                 f"Tier {row['tier']}, {row['status']}  \n"
                 f"Ask: {'$' + row['ask_amount'] if row['ask_amount'] else 'none'}  \n"
                 f"Confidence {row['confidence']} ({row['confidence_band']}), "
@@ -740,7 +767,8 @@ if stage == 4:
     if pending:
         names = manifest[manifest["donor_id"].isin(pending)]["donor_name"].tolist()
         st.error(
-            f"{len(pending)} required review(s) outstanding: {', '.join(names)}. "
+            f"{len(pending)} required review(s) outstanding: "
+            f"{', '.join(md_escape(n) for n in names)}. "
             "Go back and sign each one off."
         )
         if st.button("Back to review"):

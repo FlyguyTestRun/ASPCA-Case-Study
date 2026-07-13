@@ -456,6 +456,55 @@ def test_dataset_covers_all_fifty_donors(js_results):
     assert len(js_results) == 50
 
 
+class TestOriginalVsRewriteComparisonStaysAccurate:
+    """The "Same donor, two approaches" section is static prose, not driven
+    by the embedded dataset, specifically so it reads clearly without a
+    table to cross-reference. That is also exactly the kind of claim that
+    quietly goes stale if the fixture or the policy ever changes. This
+    independently recomputes both figures from donor_rules and the raw
+    fixture and asserts they still match what the page states, rather than
+    trusting the hardcoded numbers on faith."""
+
+    def test_ruth_andersen_figures_are_still_correct(self):
+        if not DELIVERABLE.exists():
+            pytest.skip("deliverable/donor-data-review.html not built")
+        html = DELIVERABLE.read_text(encoding="utf-8")
+
+        fixture_path = REPO_ROOT / "skill" / "charity-donor-outreach" / "assets" / "sample_donors.csv"
+        import csv
+        with fixture_path.open(newline="", encoding="utf-8") as handle:
+            rows = list(csv.DictReader(handle))
+        ruth = next(row for row in rows if row["donor_name"] == "Ruth Andersen")
+        assert ruth["tier"] == "Silver", "the page's claim about her stated tier assumes this"
+
+        gifts = rules.parse_gifts(ruth["gifts"])
+        largest = max(amount for _, amount in gifts)
+        lifetime = sum(amount for _, amount in gifts)
+        last_year = max(year for year, _ in gifts)
+        as_of_year = 2024
+
+        computed_tier = rules.compute_tier(lifetime)
+        assert computed_tier == "Gold", "the page's claim about her computed tier assumes this"
+
+        # The original SKILL.md's own literal steps: Silver rate, rounded
+        # to the nearest 50 before the uplifts, never rounded again after.
+        original_amount = largest * 0.15
+        original_amount = round(original_amount / 50) * 50
+        if last_year == as_of_year - 1:
+            original_amount *= 1.10
+        original_amount += 100  # Ruth is a volunteer
+        original_amount *= 1.2  # emergency appeal
+        assert f"${original_amount:,.0f}" == "$1,506"
+        assert "$1,506" in html
+
+        rewrite = rules.compute_ask(
+            tier="Gold", lapsed=False, largest_gift=largest, last_gift_year=last_year,
+            volunteer=True, campaign_type="emergency_appeal", as_of_year=as_of_year,
+        )
+        assert f"${rewrite.amount:,.0f}" == "$2,450"
+        assert "$2,450" in html
+
+
 class TestGuidedWalkthrough:
     """The walkthrough is a specific requirement: a spotlighted, captioned
     tour of the redesign, under two minutes, built from the same word counts

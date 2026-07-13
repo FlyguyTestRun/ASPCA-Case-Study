@@ -199,6 +199,84 @@
   }
   .why-card p { margin: 0; font-size: 0.85rem; color: var(--ink-soft); }
 
+  /* ---------- brief + comparison ---------- */
+  .brief-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .brief-card {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 1rem 1.1rem;
+  }
+  .brief-card h3 {
+    margin: 0 0 0.4rem;
+    font-family: var(--font-head);
+    font-weight: 500;
+    font-size: 1.05rem;
+  }
+  .brief-card p { margin: 0; font-size: 0.88rem; color: var(--ink-soft); }
+  .brief-card a { font-weight: 600; }
+
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+  }
+  @media (max-width: 760px) {
+    .compare-grid { grid-template-columns: 1fr; }
+  }
+  .compare-col {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.4rem;
+  }
+  .compare-before { border-top: 3px solid var(--crit); }
+  .compare-after { border-top: 3px solid var(--ok); }
+  .compare-label {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 0.8rem;
+  }
+  .compare-steps {
+    margin: 0 0 1.1rem;
+    padding-left: 1.2rem;
+    font-size: 0.86rem;
+    color: var(--ink);
+  }
+  .compare-steps li { margin-bottom: 0.45rem; line-height: 1.45; }
+  .compare-result {
+    display: flex;
+    align-items: baseline;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+    padding-top: 0.9rem;
+    border-top: 1px dashed var(--line);
+  }
+  .compare-amount {
+    font-family: var(--font-mono);
+    font-size: 1.6rem;
+    font-weight: 700;
+  }
+  .compare-result.crit .compare-amount { color: var(--crit); }
+  .compare-result.ok .compare-amount { color: var(--ok); }
+  .compare-caption { font-size: 0.82rem; color: var(--ink-soft); }
+  .compare-note {
+    margin-top: 1.25rem;
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+    max-width: 68ch;
+  }
+
   /* ---------- table toolbar ---------- */
   .toolbar {
     display: flex;
@@ -500,6 +578,29 @@
   </div>
 </header>
 
+<section id="brief">
+  <div class="wrap">
+    <h2>What this case study asked for</h2>
+    <p class="section-note">
+      The brief, close to verbatim: the skill is intended to help fundraising
+      staff at the ASPCA generate personalized donor letters at scale, designed
+      to produce consistent, reliable outputs and be scalable to a growing
+      donor list. Two tasks followed from it: describe improvements and their
+      impact, and rewrite the skill to implement them.
+    </p>
+    <div class="brief-grid">
+      <div class="brief-card">
+        <h3>1. Improvements and their impact</h3>
+        <p>Ten defects in the original, each with what it would have done in production and the fix that closes it, are in the <a href="../assessment/ASSESSMENT.md">written assessment</a> and the <a href="../docs/trap-registry.md">trap registry</a>. The next section below shows the clearest one on one real donor: a tier the file states, checked against the money that is supposed to justify it.</p>
+      </div>
+      <div class="brief-card">
+        <h3>2. The rewrite</h3>
+        <p><a href="../skill/charity-donor-outreach/SKILL.md">skill/charity-donor-outreach/</a>: three deterministic scripts plus one optional, bounded, off-by-default personalization step. Every number on this page is what that rewrite actually computed, not a mockup of what it should do.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section id="pipeline">
   <div class="wrap">
     <h2>Why the pipeline is shaped this way</h2>
@@ -612,6 +713,57 @@
         <p>Below 0.70 a record is blocked outright. Below 0.90 it is held for a person. Everything else still gets a Platinum-always check.</p>
       </div>
     </div>
+  </div>
+</section>
+
+<section id="comparison">
+  <div class="wrap">
+    <h2>Same donor, two approaches</h2>
+    <p class="section-note">
+      The clearest way to answer "how are the outputs different": one real
+      donor, run through what the original instructions literally say to do,
+      and through what this pipeline actually does. Neither number is
+      hypothetical; both are the real formula, applied to Ruth Andersen's
+      real gift history (<a href="../original/charity-donor-outreach/SKILL.md">the
+      original SKILL.md</a>, row 24 of the donor table).
+    </p>
+    <div class="compare-grid">
+      <div class="compare-col compare-before">
+        <div class="compare-label">Original SKILL.md, followed literally</div>
+        <ol class="compare-steps">
+          <li>Look up her tier in the table: <strong>Silver</strong>, as stated. The instructions never say to check it against anything.</li>
+          <li>Silver asks for 15% of her largest gift: 15% &times; $7,000 = $1,050</li>
+          <li>Round to the nearest $50 here, before the uplifts below (the instructions' own step order): $1,050</li>
+          <li>She gave last year: &times;1.10 loyalty uplift = $1,155</li>
+          <li>She is a volunteer: +$100 flat = $1,255</li>
+          <li>Emergency appeal: &times;1.2 = <strong>$1,506</strong>, and nothing rounds it again</li>
+        </ol>
+        <div class="compare-result crit">
+          <span class="compare-amount">$1,506</span>
+          <span class="compare-caption">what a model following these instructions, on this donor, would ask for</span>
+        </div>
+      </div>
+      <div class="compare-col compare-after">
+        <div class="compare-label">This pipeline, run on the same donor</div>
+        <ol class="compare-steps">
+          <li>Recompute her tier from the actual gift history: $3,000 + $4,000 + $5,000 + $6,000 + $7,000 = $25,000 lifetime &rarr; <strong>Gold</strong>, not Silver</li>
+          <li>Stated Silver contradicts computed Gold: held in exceptions, no letter, until a person approves the correction</li>
+          <li>Corrected to Gold, recalculated: 25% &times; $7,000 = $1,750</li>
+          <li>Loyalty uplift &times;1.10 = $1,925</li>
+          <li>Volunteer +$100 = $2,025</li>
+          <li>Emergency appeal &times;1.2 = $2,430, rounded once, at the end: <strong>$2,450</strong></li>
+        </ol>
+        <div class="compare-result ok">
+          <span class="compare-amount">$2,450</span>
+          <span class="compare-caption">the ask this pipeline computes, and the only one it ever sends</span>
+        </div>
+      </div>
+    </div>
+    <p class="compare-note">
+      $944 apart, on one donor, entirely because a stated label was never checked against the money it was supposed to describe.
+      That same mismatch, not a different one, is why four donors in this fifty-record file were held rather than mailed at the
+      original, unverified numbers, and why the findings on this page are not the findings the original prompt would have produced.
+    </p>
   </div>
 </section>
 

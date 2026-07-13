@@ -40,7 +40,7 @@ The original skill instructed the assistant to tell every donor their gift would
 
 ## Regression testing
 
-127 automated tests, every expected value hand-calculated from policy before the code was written. The original skill's own donor table, transcribed verbatim into a permanent fixture with its planted errors preserved, is re-run by [CI](../.github/workflows/ci.yml) on every push, so the specific mistakes this exercise was seeded with can never quietly return. [`docs/trap-registry.md`](trap-registry.md) maps every planted defect to the test that guards it. Design record: [ADR 0013](adr/0013-ci-regression-gate.md).
+134 automated tests, every expected value hand-calculated from policy before the code was written. The original skill's own donor table, transcribed verbatim into a permanent fixture with its planted errors preserved, is re-run by [CI](../.github/workflows/ci.yml) on every push, so the specific mistakes this exercise was seeded with can never quietly return. [`docs/trap-registry.md`](trap-registry.md) maps every planted defect to the test that guards it. Design record: [ADR 0013](adr/0013-ci-regression-gate.md).
 
 ## Versioned business rules
 
