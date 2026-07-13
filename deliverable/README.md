@@ -41,10 +41,24 @@ by anyone regardless of their technical setup.
   before `calculate_ask.py` and `generate_letters.py` run. Ask amounts and
   letter text are still computed nowhere but Python; see "Why a second
   implementation" below for why the browser stops at tier and date logic.
+- Every mandatory-review donor gets a "Reviewed" checkbox, and a "Required
+  reviews: X of Y complete" indicator tracks progress across the whole
+  file, not just what is currently visible under a search or filter.
+- "Download dated archive" stays locked until every mandatory-review donor
+  is checked off, then packages the cleaned CSV, every generated letter,
+  and a manifest (tier, ask, confidence, review level, reviewed status, and
+  letter file or reason for none, per donor) into one
+  `donor-archive-<timestamp>.zip`, built by a small dependency-free ZIP
+  writer (CRC32 plus a minimal STORED-method archive) since the file has to
+  stay self-contained, no library, no build step.
+- The pipeline diagram names the real script at each stage and, for the
+  generate stage, its output path, and a "Scripts on GitHub" panel links
+  directly to `validate_input.py`, `calculate_ask.py`, `generate_letters.py`,
+  and the shared `donor_rules.py`, not a description of them.
 
 Nothing in the page sends data anywhere. It reads the embedded dataset (or
 an uploaded file), computes and stores in the browser, and writes a
-download to the local machine. Design records: [ADR 0029](../docs/adr/0029-browser-side-upload-clean-and-persist.md), [ADR 0030](../docs/adr/0030-letter-preview-and-date-display.md).
+download to the local machine. Design records: [ADR 0029](../docs/adr/0029-browser-side-upload-clean-and-persist.md), [ADR 0030](../docs/adr/0030-letter-preview-and-date-display.md), [ADR 0035](../docs/adr/0035-html-review-gate-and-dated-archive.md).
 
 ## The guided walkthrough
 

@@ -25,9 +25,9 @@
     "total": 50
   },
   "timings_ms": {
-    "upload_and_validate_ms": 1,
+    "upload_and_validate_ms": 2,
     "apply_corrections_ms": 0,
-    "save_ms": 5,
-    "restore_ms": 1
+    "save_ms": 1,
+    "restore_ms": 0
   }
 }

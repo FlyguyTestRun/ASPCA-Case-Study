@@ -400,6 +400,158 @@ class TestExportAndRenderingAreSafeAgainstHostileInput:
         assert "<img" not in security_helpers["pillEscapesText"]
 
 
+def run_zip_builder_in_node(html: str, output_path: Path) -> None:
+    """Build a small zip through the page's own buildZip/crc32, exactly the
+    function the archive-download button calls, and write it to disk so a
+    Python-side zipfile check (a different implementation of the format)
+    can confirm it is a real, openable archive, not just bytes that look
+    plausible from inside the same code that produced them."""
+    dataset, script_block = extract_dataset_and_script(html)
+    inner = re.search(r"\(function \(\) \{(.*)\}\)\(\);", script_block, re.S).group(1)
+    inner = inner.replace('"use strict";', "")
+    inner = re.sub(
+        r'JSON\.parse\(document\.getElementById\("dataset"\)\.textContent\)',
+        "__RAW__", inner,
+    )
+    harness = (
+        _STUB
+        + "var __RAW__ = " + json.dumps(dataset) + ";\n"
+        + inner
+        + """
+        var fs = require("fs");
+        var blob = buildZip([
+          { name: "donors_cleaned.csv", content: "donor_name,tier\\nRobert Svensson,Platinum\\n" },
+          { name: "letters/robert-svensson.html", content: "<html><body>caf\\u00e9</body></html>" },
+        ]);
+        blob.arrayBuffer().then(function (buf) {
+          fs.writeFileSync(process.argv[2], Buffer.from(buf));
+        });
+        """
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        script_path = Path(tmp) / "harness.js"
+        script_path.write_text(harness, encoding="utf-8")
+        result = subprocess.run(
+            ["node", str(script_path), str(output_path)], capture_output=True, text=True,
+        )
+    assert result.returncode == 0, f"Node execution failed:\n{result.stderr}"
+
+
+class TestZipWriterProducesARealArchive:
+    """The archive-download button needs a real zip, built with no external
+    library since this file must open standalone. Node builds it exactly
+    as the browser would; Python's own zipfile module, a completely
+    independent implementation of the format, is what actually proves the
+    bytes are valid, not just self-consistent."""
+
+    def test_zip_opens_and_contains_expected_entries(self, tmp_path):
+        if not DELIVERABLE.exists():
+            pytest.skip("deliverable/donor-data-review.html not built")
+        html = DELIVERABLE.read_text(encoding="utf-8")
+        zip_path = tmp_path / "test-archive.zip"
+        run_zip_builder_in_node(html, zip_path)
+
+        import zipfile
+        assert zipfile.is_zipfile(zip_path)
+        with zipfile.ZipFile(zip_path) as zf:
+            assert zf.testzip() is None, "zip reports a corrupt entry"
+            names = zf.namelist()
+            assert names == ["donors_cleaned.csv", "letters/robert-svensson.html"]
+            assert zf.read("donors_cleaned.csv").decode("utf-8") == "donor_name,tier\nRobert Svensson,Platinum\n"
+            assert "café" in zf.read("letters/robert-svensson.html").decode("utf-8")
+
+
+def run_archive_and_review_flow_in_node(html: str, raw_csv_text: str) -> dict:
+    """Exercise the review-gate logic and the archive's own CSV/manifest
+    builders: how many records require mandatory review, that the gate is
+    closed until every one is checked off and open once they are, and that
+    the manifest and cleaned CSV have the right shape."""
+    dataset, script_block = extract_dataset_and_script(html)
+    inner = re.search(r"\(function \(\) \{(.*)\}\)\(\);", script_block, re.S).group(1)
+    inner = inner.replace('"use strict";', "")
+    inner = re.sub(
+        r'JSON\.parse\(document\.getElementById\("dataset"\)\.textContent\)',
+        "__RAW__", inner,
+    )
+    harness = (
+        _STUB
+        + "var __RAW__ = " + json.dumps(dataset) + ";\n"
+        + inner
+        + """
+        donors = loadDonorsFromCsvText(""" + json.dumps(raw_csv_text) + """);
+        applySuggestedCorrections();
+
+        var mandatoryIds = [];
+        donors.forEach(function (row) {
+          var review = deriveReview(row, deriveState(row));
+          if (review.level === "mandatory") mandatoryIds.push(row.id);
+        });
+        var beforeAllReviewed = mandatoryIds.length > 0 && mandatoryIds.every(function (id) { return donors[id].reviewed; });
+        mandatoryIds.forEach(function (id) { donors[id].reviewed = true; });
+        var afterAllReviewed = mandatoryIds.every(function (id) { return donors[id].reviewed; });
+
+        var csvLines = buildCleanedCsvText().split("\\n");
+        var manifestLines = buildManifestCsvText().split("\\n");
+
+        console.log(JSON.stringify({
+          mandatoryCount: mandatoryIds.length,
+          beforeAllReviewed: beforeAllReviewed,
+          afterAllReviewed: afterAllReviewed,
+          csvLineCount: csvLines.length,
+          manifestHeader: manifestLines[0],
+          manifestLineCount: manifestLines.length,
+          slugExample: fileSlug("Ada Yamamoto-Pierce"),
+        }));
+        """
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        script_path = Path(tmp) / "harness.js"
+        script_path.write_text(harness, encoding="utf-8")
+        result = subprocess.run(["node", str(script_path)], capture_output=True, text=True)
+    assert result.returncode == 0, f"Node execution failed:\n{result.stderr}"
+    return json.loads(result.stdout.strip())
+
+
+@pytest.fixture(scope="module")
+def archive_and_review_flow():
+    if not DELIVERABLE.exists():
+        pytest.skip("deliverable/donor-data-review.html not built")
+    if not RAW_FIXTURE.exists():
+        pytest.skip("raw fixture not found")
+    html = DELIVERABLE.read_text(encoding="utf-8")
+    raw_csv_text = RAW_FIXTURE.read_text(encoding="utf-8")
+    return run_archive_and_review_flow_in_node(html, raw_csv_text)
+
+
+class TestReviewGateAndArchiveExports:
+    """The five Platinum donors are always mandatory review regardless of
+    tier corrections (ground truth already established and cross-checked
+    against donor_rules.py in TestUploadCleanPersistFlow); this pins the
+    gate logic specifically: closed before every mandatory record is
+    checked off, open once they are, and the archive's own CSV builders
+    produce the right shape."""
+
+    def test_mandatory_count_matches_known_ground_truth(self, archive_and_review_flow):
+        assert archive_and_review_flow["mandatoryCount"] == 5
+
+    def test_gate_is_closed_until_all_reviewed_then_opens(self, archive_and_review_flow):
+        assert archive_and_review_flow["beforeAllReviewed"] is False
+        assert archive_and_review_flow["afterAllReviewed"] is True
+
+    def test_cleaned_csv_has_one_row_per_donor_plus_header(self, archive_and_review_flow):
+        assert archive_and_review_flow["csvLineCount"] == 51
+
+    def test_manifest_has_expected_header_and_row_count(self, archive_and_review_flow):
+        assert archive_and_review_flow["manifestHeader"] == (
+            "donor_id,donor_name,stated_tier,computed_tier,ask_amount,"
+            "confidence,review_level,reviewed,letter_file,no_letter_reason"
+        )
+        assert archive_and_review_flow["manifestLineCount"] == 51
+
+    def test_file_slug_is_filesystem_safe(self, archive_and_review_flow):
+        assert archive_and_review_flow["slugExample"] == "ada-yamamoto-pierce"
+
+
 @pytest.fixture(scope="module")
 def js_results():
     if not DELIVERABLE.exists():

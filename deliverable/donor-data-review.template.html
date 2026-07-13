@@ -174,6 +174,11 @@
     font-size: 11px;
     fill: var(--crit);
   }
+  .dag-script {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    fill: var(--ink-soft);
+  }
   .dag-legend { display: flex; gap: 1.5rem; margin-top: 0.9rem; flex-wrap: wrap; }
   .dag-legend span { font-size: 0.8rem; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 0.4rem; }
   .dag-legend i { width: 0.7rem; height: 0.7rem; border-radius: 2px; display: inline-block; }
@@ -198,6 +203,32 @@
     font-weight: 600;
   }
   .why-card p { margin: 0; font-size: 0.85rem; color: var(--ink-soft); }
+
+  .script-refs {
+    margin-top: 1.5rem;
+    padding: 1rem 1.1rem;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  .script-refs-label {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 0.6rem;
+  }
+  .script-refs ul { margin: 0 0 0.7rem; padding-left: 1.2rem; font-size: 0.86rem; }
+  .script-refs li { margin-bottom: 0.35rem; line-height: 1.5; }
+  .script-refs code {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    background: var(--accent-soft);
+    padding: 0.05rem 0.3rem;
+    border-radius: 3px;
+  }
+  .script-refs-note { margin: 0; font-size: 0.82rem; color: var(--ink-soft); }
 
   /* ---------- brief + comparison ---------- */
   .brief-grid {
@@ -306,6 +337,24 @@
     font-size: 0.82rem;
     min-height: 1.2em;
     margin: -0.6rem 0 1rem;
+  }
+  .review-progress {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius);
+    margin: 0 0 1rem;
+  }
+  .review-progress.incomplete { background: var(--warn-soft); color: var(--warn); }
+  .review-progress.complete { background: var(--ok-soft); color: var(--ok); }
+  .reviewed-cell { text-align: center; }
+  .reviewed-cell input[type="checkbox"] {
+    width: 1.05rem;
+    height: 1.05rem;
+    cursor: pointer;
+    accent-color: var(--accent);
   }
   button {
     font-family: var(--font-body);
@@ -641,6 +690,7 @@
           <text class="sub" x="200" y="121">totals from source data</text>
         </g>
         <text class="dag-annot" x="195" y="150">4 tier mismatches caught here</text>
+        <text class="dag-script" x="195" y="165">scripts/validate_input.py</text>
 
         <line x1="340" y1="100" x2="395" y2="100" class="dag-arrow" marker-end="url(#arrowhead)" />
 
@@ -652,6 +702,7 @@
           <text class="sub" x="410" y="121">confidence score</text>
         </g>
         <text class="dag-annot" x="405" y="150">no arithmetic in the model</text>
+        <text class="dag-script" x="405" y="165">scripts/calculate_ask.py</text>
 
         <line x1="550" y1="100" x2="605" y2="100" class="dag-arrow" marker-end="url(#arrowhead)" />
 
@@ -663,6 +714,7 @@
           <text class="sub" x="620" y="121">against a schema, then HTML</text>
         </g>
         <text class="dag-annot" x="615" y="150">no unconfirmed claims possible</text>
+        <text class="dag-script" x="615" y="165">scripts/generate_letters.py &#8594; output/letters/</text>
 
         <!-- invisible bridge spanning stages 2+3, used only as a tour spotlight target -->
         <rect id="dagNodeCalcGen" x="395" y="65" width="365" height="70" fill="transparent" stroke="none" />
@@ -712,6 +764,17 @@
         <h3>Confidence decides who reviews what</h3>
         <p>Below 0.70 a record is blocked outright. Below 0.90 it is held for a person. Everything else still gets a Platinum-always check.</p>
       </div>
+    </div>
+
+    <div class="script-refs">
+      <div class="script-refs-label">The actual scripts, on GitHub, not a description of them</div>
+      <ul>
+        <li><a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/skill/charity-donor-outreach/scripts/validate_input.py">validate_input.py</a>: Stage 1, writes <code>work/validated.csv</code> and <code>work/exceptions.csv</code></li>
+        <li><a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/skill/charity-donor-outreach/scripts/calculate_ask.py">calculate_ask.py</a>: Stage 2, writes <code>work/computed.csv</code></li>
+        <li><a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/skill/charity-donor-outreach/scripts/generate_letters.py">generate_letters.py</a>: Stage 3, writes <code>output/letters/&lt;donor_id&gt;.html</code> and <code>output/manifest.csv</code></li>
+        <li><a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/skill/charity-donor-outreach/scripts/donor_rules.py">donor_rules.py</a>: the shared policy module every stage above imports, one implementation of tier, date, and ask logic</li>
+      </ul>
+      <p class="script-refs-note">This page's own dataset is built by running these exact scripts (<a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/deliverable/build_dataset.py">deliverable/build_dataset.py</a>), not a hand-typed copy of what they should produce.</p>
     </div>
   </div>
 </section>
@@ -771,11 +834,14 @@
   <div class="wrap">
     <h2>Review or correct the dataset</h2>
     <p class="section-note">
-      Fifty records, the full case-study file, loaded below by default. Search
-      by name, filter by status, or edit any highlighted cell directly; edits
-      re-run the same tier and date logic the Python pipeline uses. Nothing
-      here is sent anywhere.
+      Fifty records, the case-study file exactly as it was transcribed from
+      the original SKILL.md, loaded below by default, the same fifty rows
+      the assessment and the walkthrough both run against. Search by name,
+      filter by status, or edit any highlighted cell directly; edits re-run
+      the same tier and date logic the Python pipeline uses. Nothing here is
+      sent anywhere.
     </p>
+    <p class="review-progress" id="reviewProgress" role="status" aria-live="polite">Required reviews: 0 of 0 complete.</p>
 
     <div class="toolbar">
       <input type="search" id="search" placeholder="Search donor name…" aria-label="Search donor name" />
@@ -786,15 +852,15 @@
         <option value="ok">Clean</option>
       </select>
       <div class="spacer"></div>
-      <button class="ghost" id="resetBtn" type="button">Reset edits</button>
+      <button class="ghost" id="resetBtn" type="button">Load original 50 donors</button>
       <button id="exportBtn" type="button">Download cleaned CSV</button>
     </div>
 
     <p class="section-note">
-      Upload the case study's own unedited donor file, or any file in the
-      same shape, to validate and clean it here before it goes back through
-      the pipeline. A mismatched tier or a status the date policy contradicts
-      is held until you approve the fix, one cell at a time or all at once.
+      Or upload your own donor file, CSV or the same shape, to validate and
+      clean it here before it goes back through the pipeline. A mismatched
+      tier or a status the date policy contradicts is held until you approve
+      the fix, one cell at a time or all at once.
     </p>
 
     <div class="toolbar" id="cleanToolbar">
@@ -804,6 +870,11 @@
       <button class="ghost" id="saveCleanedBtn" type="button">Save cleaned dataset</button>
       <button class="ghost" id="restoreCleanedBtn" type="button" hidden>Restore saved dataset</button>
       <button class="ghost" id="clearSavedBtn" type="button" hidden>Clear saved data</button>
+    </div>
+    <div class="toolbar" id="archiveToolbar">
+      <span class="section-note" style="margin:0;">Every mandatory-review record above must be checked off in the Reviewed column before this unlocks.</span>
+      <div class="spacer"></div>
+      <button id="archiveBtn" type="button" disabled>Download dated archive (ZIP)</button>
     </div>
     <p id="cleanStatus" role="status" aria-live="polite"></p>
 
@@ -824,6 +895,7 @@
             <th>Confidence</th>
             <th>Review</th>
             <th>Flag</th>
+            <th>Reviewed</th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -911,6 +983,7 @@ __DATASET_JSON__
         letter_html: d.letter_html || "",
         no_letter_reason: d.no_letter_reason || "",
         edited: !!d.edited,
+        reviewed: !!d.reviewed,
       };
     });
   }
@@ -1057,9 +1130,21 @@ __DATASET_JSON__
   // so an edit made here is never mistaken for a letter that was actually
   // produced.
   function renderDetailCell(row) {
-    var trace = '<div class="detail-trace">' +
-      escapeHtml(row.ask_trace || "No calculation trace: this record was held before ask calculation.") +
-      "</div>";
+    // A correction made in this browser (row.edited) only ever updates the
+    // review/flag state live; it never re-runs the real ask formula or
+    // regenerates a letter, so the original held-reason and no-letter text
+    // baked in at build time would otherwise read as still-current after a
+    // fix has actually been applied. Say so plainly instead of leaving a
+    // stale, contradictory message next to a row that no longer needs it.
+    var state = deriveState(row);
+    var corrected = row.edited && state.flagLevel !== "crit";
+    var traceText = corrected
+      ? "Corrected in this browser session. This page never re-runs the ask formula or regenerates a " +
+        "letter; download the cleaned CSV and run validate_input.py, then calculate_ask.py, then " +
+        "generate_letters.py to produce the real, corrected output. Original hold reason: " +
+        (row.ask_trace || "held pending correction") + "."
+      : (row.ask_trace || "No calculation trace: this record was held before ask calculation.");
+    var trace = '<div class="detail-trace">' + escapeHtml(traceText) + "</div>";
     if (row.letter_html) {
       return trace +
         '<div class="detail-letter">' +
@@ -1068,10 +1153,12 @@ __DATASET_JSON__
         '" sandbox="" srcdoc="' + escapeAttr(row.letter_html) + '"></iframe>' +
         "</div>";
     }
+    var noLetterText = corrected
+      ? "corrected here, but no letter yet. This page only ever shows a letter the real pipeline actually " +
+        "generated, never one synthesized in the browser; re-run the pipeline on the cleaned CSV to produce it."
+      : (row.no_letter_reason || "not part of the committed pipeline run this page was built from.");
     return trace +
-      '<div class="detail-no-letter">No letter generated: ' +
-      escapeHtml(row.no_letter_reason || "not part of the committed pipeline run this page was built from.") +
-      "</div>";
+      '<div class="detail-no-letter">No letter generated: ' + escapeHtml(noLetterText) + "</div>";
   }
 
   function renderRows() {
@@ -1102,14 +1189,16 @@ __DATASET_JSON__
         '<td class="num">' + (row.ask_amount ? money(row.ask_amount) : "—") + '</td>' +
         '<td class="num">' + (row.original_confidence || "—") + '</td>' +
         '<td>' + pill(reviewPillLevel(review.level), review.text) + '</td>' +
-        '<td>' + pill(state.flagLevel, state.flagText) + '</td>';
+        '<td>' + pill(state.flagLevel, state.flagText) + '</td>' +
+        '<td class="reviewed-cell"><input type="checkbox" class="review-check" data-id="' + row.id +
+          '" ' + (row.reviewed ? "checked" : "") + ' aria-label="Mark ' + escapeAttr(row.donor_name) + ' reviewed"></td>';
       tbody.appendChild(tr);
 
       var detail = document.createElement("tr");
       detail.className = "detail-row hidden";
       detail.dataset.detailFor = row.id;
       var td = document.createElement("td");
-      td.colSpan = 13;
+      td.colSpan = 14;
       td.className = "detail-cell";
       td.innerHTML = renderDetailCell(row);
       detail.appendChild(td);
@@ -1118,6 +1207,26 @@ __DATASET_JSON__
 
     emptyState.hidden = shown > 0;
     editCountEl.textContent = editedCount() + " edit" + (editedCount() === 1 ? "" : "s") + " pending";
+    renderReviewProgress();
+  }
+
+  // Every donor whose review level is "mandatory" (Platinum, a lapsed-major
+  // routing, or confidence below 0.90) must be checked off here before the
+  // dated archive can be downloaded. This is the gate: nothing is ever sent
+  // from this page either way, but the archive is the record of what a
+  // person actually looked at before this batch was considered handled.
+  function renderReviewProgress() {
+    var mandatory = donors.filter(function (row) {
+      return deriveReview(row, deriveState(row)).level === "mandatory";
+    });
+    var done = mandatory.filter(function (row) { return row.reviewed; }).length;
+    var el = document.getElementById("reviewProgress");
+    if (el) {
+      el.textContent = "Required reviews: " + done + " of " + mandatory.length + " complete.";
+      el.className = "review-progress" + (done < mandatory.length ? " incomplete" : " complete");
+    }
+    var archiveBtn = document.getElementById("archiveBtn");
+    if (archiveBtn) archiveBtn.disabled = done < mandatory.length;
   }
 
   tbody.addEventListener("click", function (e) {
@@ -1126,6 +1235,14 @@ __DATASET_JSON__
     var row = tbody.querySelector('.detail-row[data-detail-for="' + btn.dataset.id + '"]');
     if (row) row.classList.toggle("hidden");
     btn.textContent = row.classList.contains("hidden") ? "▸" : "▾";
+  });
+
+  tbody.addEventListener("change", function (e) {
+    var box = e.target.closest(".review-check");
+    if (!box) return;
+    var id = parseInt(box.dataset.id, 10);
+    donors[id].reviewed = box.checked;
+    renderReviewProgress();
   });
 
   tbody.addEventListener("blur", function (e) {
@@ -1177,25 +1294,88 @@ __DATASET_JSON__
   // last_gift_year, volunteer), with the current, possibly-corrected stated
   // tier, so this file can be handed straight back to the pipeline with no
   // remapping before calculate_ask.py and generate_letters.py run.
-  document.getElementById("exportBtn").addEventListener("click", function () {
+  function csvCell(v) {
+    v = csvSafe(v);
+    return /[",]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }
+
+  function buildCleanedCsvText() {
     var header = ["donor_name", "title", "tier", "region", "gifts", "largest_gift", "lifetime_total", "last_gift_year", "volunteer"];
     var lines = [header.join(",")];
     donors.forEach(function (row) {
       var cells = [
         row.donor_name, row.title || "", row.stated_tier, row.region, row.gifts,
         row.largest_gift.toFixed(2), row.lifetime_total.toFixed(2), row.last_gift_year, row.volunteer,
-      ].map(function (v) {
-        v = csvSafe(v);
-        return /[",]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
-      });
+      ].map(csvCell);
       lines.push(cells.join(","));
     });
-    var blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    return lines.join("\n");
+  }
+
+  document.getElementById("exportBtn").addEventListener("click", function () {
+    var blob = new Blob([buildCleanedCsvText()], { type: "text/csv" });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     a.href = url; a.download = "donors_cleaned.csv";
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  });
+
+  function fileSlug(name) {
+    return String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "donor";
+  }
+
+  function buildManifestCsvText() {
+    var header = ["donor_id", "donor_name", "stated_tier", "computed_tier", "ask_amount",
+      "confidence", "review_level", "reviewed", "letter_file", "no_letter_reason"];
+    var lines = [header.join(",")];
+    donors.forEach(function (row) {
+      var state = deriveState(row);
+      var review = deriveReview(row, state);
+      var slug = fileSlug(row.donor_name);
+      var hasLetter = !!row.letter_html;
+      var cells = [
+        slug, row.donor_name, row.stated_tier, state.computedTier,
+        row.ask_amount || "", row.original_confidence || "", review.level,
+        row.reviewed ? "yes" : "no",
+        hasLetter ? "letters/" + slug + ".html" : "",
+        hasLetter ? "" : (row.no_letter_reason || review.text),
+      ].map(csvCell);
+      lines.push(cells.join(","));
+    });
+    return lines.join("\n");
+  }
+
+  function timestampForFilename(date) {
+    function pad(n) { return String(n).padStart(2, "0"); }
+    return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate()) +
+      "-" + pad(date.getHours()) + pad(date.getMinutes());
+  }
+
+  // The dated record of what a person actually reviewed before this batch
+  // was considered handled: the cleaned donor data, every generated letter,
+  // and a manifest tying review status to each one, all in one timestamped
+  // file. Gated behind renderReviewProgress() disabling this button until
+  // every mandatory-review record is checked off.
+  document.getElementById("archiveBtn").addEventListener("click", function () {
+    var now = new Date();
+    var entries = [
+      { name: "donors_cleaned.csv", content: buildCleanedCsvText() },
+      { name: "manifest.csv", content: buildManifestCsvText() },
+    ];
+    donors.forEach(function (row) {
+      if (row.letter_html) {
+        entries.push({ name: "letters/" + fileSlug(row.donor_name) + ".html", content: row.letter_html });
+      }
+    });
+    var blob = buildZip(entries);
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "donor-archive-" + timestampForFilename(now) + ".zip";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setCleanStatus("Archived " + donors.length + " records and " +
+      donors.filter(function (d) { return d.letter_html; }).length + " letters to a dated ZIP.");
   });
 
   function setCleanStatus(text) {
@@ -1244,6 +1424,112 @@ __DATASET_JSON__
     return buildDonorsFromRecords(parseCsv(text));
   }
 
+  // ============================================================
+  // Minimal, dependency-free ZIP writer (STORED, uncompressed method).
+  //
+  // This file is meant to open standalone, no build step, no CDN script,
+  // so the archive download cannot reach for a library. STORED avoids
+  // needing a DEFLATE implementation; the tradeoff is a slightly larger
+  // file than a compressed zip, which does not matter at this scale (a
+  // few dozen short HTML letters and a CSV). Format: PKZIP's local file
+  // header / central directory / end-of-central-directory record, one
+  // local header + central header pair per entry.
+  // ============================================================
+  var CRC32_TABLE = (function () {
+    var table = new Uint32Array(256);
+    for (var n = 0; n < 256; n++) {
+      var c = n;
+      for (var k = 0; k < 8; k++) {
+        c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      }
+      table[n] = c >>> 0;
+    }
+    return table;
+  })();
+
+  function crc32(bytes) {
+    var crc = 0xFFFFFFFF;
+    for (var i = 0; i < bytes.length; i++) {
+      crc = CRC32_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+    }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function dosDateTime(date) {
+    var time = ((date.getHours() << 11) | (date.getMinutes() << 5) | (date.getSeconds() >> 1)) & 0xFFFF;
+    var day = (((date.getFullYear() - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate()) & 0xFFFF;
+    return { time: time, date: day };
+  }
+
+  // entries: [{ name: "file.txt", content: "text" }]. Returns a Blob.
+  function buildZip(entries) {
+    var encoder = new TextEncoder();
+    var stamp = dosDateTime(new Date());
+    var localParts = [];
+    var centralParts = [];
+    var offset = 0;
+
+    entries.forEach(function (entry) {
+      var nameBytes = encoder.encode(entry.name);
+      var data = encoder.encode(entry.content);
+      var crc = crc32(data);
+
+      var local = new DataView(new ArrayBuffer(30));
+      local.setUint32(0, 0x04034b50, true);
+      local.setUint16(4, 20, true);
+      local.setUint16(6, 0, true);
+      local.setUint16(8, 0, true);
+      local.setUint16(10, stamp.time, true);
+      local.setUint16(12, stamp.date, true);
+      local.setUint32(14, crc, true);
+      local.setUint32(18, data.length, true);
+      local.setUint32(22, data.length, true);
+      local.setUint16(26, nameBytes.length, true);
+      local.setUint16(28, 0, true);
+      var localHeader = new Uint8Array(local.buffer);
+      localParts.push(localHeader, nameBytes, data);
+
+      var central = new DataView(new ArrayBuffer(46));
+      central.setUint32(0, 0x02014b50, true);
+      central.setUint16(4, 20, true);
+      central.setUint16(6, 20, true);
+      central.setUint16(8, 0, true);
+      central.setUint16(10, 0, true);
+      central.setUint16(12, stamp.time, true);
+      central.setUint16(14, stamp.date, true);
+      central.setUint32(16, crc, true);
+      central.setUint32(20, data.length, true);
+      central.setUint32(24, data.length, true);
+      central.setUint16(28, nameBytes.length, true);
+      central.setUint16(30, 0, true);
+      central.setUint16(32, 0, true);
+      central.setUint16(34, 0, true);
+      central.setUint16(36, 0, true);
+      central.setUint32(38, 0, true);
+      central.setUint32(42, offset, true);
+      var centralHeader = new Uint8Array(central.buffer);
+      centralParts.push(centralHeader, nameBytes);
+
+      offset += localHeader.length + nameBytes.length + data.length;
+    });
+
+    var centralStart = offset;
+    var centralSize = centralParts.reduce(function (sum, part) { return sum + part.length; }, 0);
+
+    var end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true);
+    end.setUint16(4, 0, true);
+    end.setUint16(6, 0, true);
+    end.setUint16(8, entries.length, true);
+    end.setUint16(10, entries.length, true);
+    end.setUint32(12, centralSize, true);
+    end.setUint32(16, centralStart, true);
+    end.setUint16(20, 0, true);
+
+    var parts = localParts.concat(centralParts, [new Uint8Array(end.buffer)]);
+    return new Blob(parts, { type: "application/zip" });
+  }
+
   // Approves every suggested tier correction at once, exactly what
   // apply_corrections.py does when a person runs it on the full
   // corrections file: set the stated field to the computed value. Nothing
@@ -1272,6 +1558,7 @@ __DATASET_JSON__
         ask_trace: d.ask_trace, confidence: d.original_confidence,
         confidence_band: d.original_band, letter_html: d.letter_html,
         no_letter_reason: d.no_letter_reason, edited: d.edited,
+        reviewed: d.reviewed,
       };
     });
   }
