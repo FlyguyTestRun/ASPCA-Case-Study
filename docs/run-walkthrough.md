@@ -166,7 +166,7 @@ Before Earl Fontaine's letter becomes HTML, it exists as a structured object, an
 ```json
 {
   "donor_id": "earl-fontaine",
-  "letter_date": "June 30, 2024",
+  "letter_date": "July 12, 2026",
   "salutation": "Dear Earl Fontaine,",
   "opening_paragraph": "On behalf of everyone at ASPCA, thank you for your generous support. Your giving of $275,000 over the years, including your most recent gift in 2022, has made a real difference for animals in need.",
   "campaign_paragraph": "Right now, animals rescued from cruelty and neglect need emergency shelter, veterinary care, and a safe place to recover. Your gift today goes to work immediately, funding rescue operations and urgent medical treatment for animals with nowhere else to turn.",
@@ -180,7 +180,7 @@ Before Earl Fontaine's letter becomes HTML, it exists as a structured object, an
 }
 ```
 
-**Plain language.** This is what "schema-validate the letter" means concretely: before rendering, the system checks that this object has every required field filled in, and that the ask paragraph contains exactly one dollar figure, no more, no fewer. Only after that check passes does it become a letter. Only then:
+**Plain language.** This is what "schema-validate the letter" means concretely: before rendering, the system checks that this object has every required field filled in, and that the ask paragraph contains exactly one dollar figure, no more, no fewer. Only after that check passes does it become a letter. `letter_date` is the day this walkthrough was actually captured, not the campaign's as_of_date; the two are deliberately independent, see [ADR 0031](adr/0031-letter-date-is-not-the-as-of-date.md). Only then:
 
 ```html
 <p>Dear Earl Fontaine,</p>

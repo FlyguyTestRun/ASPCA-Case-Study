@@ -61,6 +61,7 @@ def extract_dataset_and_script(html: str) -> tuple[list[dict], str]:
 # this stub is deliberately complete instead.
 _STUB = """
     function makeStubElement() {
+      var _textContent = "", _innerHTML = "";
       var el = {
         style: {},
         classList: { add: function(){}, remove: function(){}, contains: function(){return false;}, toggle: function(){} },
@@ -77,8 +78,23 @@ _STUB = """
         closest: function(){ return null; },
         setAttribute: function(){}, getAttribute: function(){ return null; }, removeAttribute: function(){},
         focus: function(){}, click: function(){},
-        value: "", textContent: "", innerHTML: "", className: "",
+        value: "", className: "",
       };
+      // Real elements escape on the textContent -> innerHTML round trip;
+      // escapeHtml() in the page relies on exactly that browser behavior,
+      // so the stub must reproduce it rather than store two independent,
+      // unlinked strings.
+      Object.defineProperty(el, "textContent", {
+        get: function () { return _textContent; },
+        set: function (v) {
+          _textContent = v;
+          _innerHTML = String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        },
+      });
+      Object.defineProperty(el, "innerHTML", {
+        get: function () { return _innerHTML; },
+        set: function (v) { _innerHTML = v; },
+      });
       return el;
     }
     var document = {
@@ -309,6 +325,79 @@ class TestUploadCleanPersistFlow:
         report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
         assert all(v >= 0 for v in upload_flow["timings"].values())
         assert report_path.exists()
+
+
+def run_security_helpers_in_node(html: str) -> dict:
+    """Exercise csvSafe, escapeHtml, and pill directly against the same
+    adversarial inputs the Python pipeline's own csv_safe and HTML-escaped
+    rendering are tested against (test_pipeline.py::test_formula_injection_arrives_inert),
+    proving the browser tool, which now accepts an uploaded file from
+    anywhere, makes the same two guarantees: no formula executes when the
+    export is opened in Excel, and no markup executes when donor-supplied
+    text is rendered."""
+    dataset, script_block = extract_dataset_and_script(html)
+    inner = re.search(r"\(function \(\) \{(.*)\}\)\(\);", script_block, re.S).group(1)
+    inner = inner.replace('"use strict";', "")
+    inner = re.sub(
+        r'JSON\.parse\(document\.getElementById\("dataset"\)\.textContent\)',
+        "__RAW__", inner,
+    )
+    harness = (
+        _STUB
+        + "var __RAW__ = " + json.dumps(dataset) + ";\n"
+        + inner
+        + """
+        var result = {
+          csvSafeFormula: csvSafe('=HYPERLINK("http://evil")'),
+          csvSafePlus: csvSafe("+1+1"),
+          csvSafeMinus: csvSafe("-1+1"),
+          csvSafeAt: csvSafe("@SUM(1)"),
+          csvSafeNormalName: csvSafe("Robert Svensson"),
+          escapedScriptTag: escapeHtml("<script>alert(1)</script>"),
+          pillEscapesText: pill("crit", "Tier mismatch: stated <img onerror=alert(1)>, computed Gold"),
+        };
+        console.log(JSON.stringify(result));
+        """
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        script_path = Path(tmp) / "harness.js"
+        script_path.write_text(harness, encoding="utf-8")
+        result = subprocess.run(["node", str(script_path)], capture_output=True, text=True)
+    assert result.returncode == 0, f"Node execution failed:\n{result.stderr}"
+    return json.loads(result.stdout.strip())
+
+
+@pytest.fixture(scope="module")
+def security_helpers():
+    if not DELIVERABLE.exists():
+        pytest.skip("deliverable/donor-data-review.html not built; run build_dataset.py + embed_dataset.py")
+    html = DELIVERABLE.read_text(encoding="utf-8")
+    return run_security_helpers_in_node(html)
+
+
+class TestExportAndRenderingAreSafeAgainstHostileInput:
+    """The upload feature means donor data can now come from any file, not
+    only the trusted, pipeline-built embedded dataset. These pin the two
+    hostile-input guarantees the Python pipeline already makes onto the
+    browser tool as well: a cell that would execute as an Excel formula is
+    neutralized on export, and donor-supplied text can never inject markup
+    when rendered into the page. Verified live in the browser against an
+    uploaded file containing both an HTML-injection attempt and an
+    apostrophe in a real name, with no console errors."""
+
+    def test_csv_export_neutralizes_formula_injection(self, security_helpers):
+        assert security_helpers["csvSafeFormula"].startswith("'=")
+        assert security_helpers["csvSafePlus"].startswith("'+")
+        assert security_helpers["csvSafeMinus"].startswith("'-")
+        assert security_helpers["csvSafeAt"].startswith("'@")
+
+    def test_csv_export_leaves_ordinary_names_untouched(self, security_helpers):
+        assert security_helpers["csvSafeNormalName"] == "Robert Svensson"
+
+    def test_html_rendering_escapes_donor_supplied_markup(self, security_helpers):
+        assert "<script>" not in security_helpers["escapedScriptTag"]
+        assert "&lt;script&gt;" in security_helpers["escapedScriptTag"]
+        assert "<img" not in security_helpers["pillEscapesText"]
 
 
 @pytest.fixture(scope="module")

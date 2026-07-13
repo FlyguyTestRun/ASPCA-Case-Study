@@ -104,7 +104,7 @@ To see these pieces working together against real data instead of reading about 
 
 ### tests/ and .github/workflows/ci.yml
 
-*Plain language:* 124 automatic checks that re-run on every change, including proof that every planted mistake is still caught and that no letter can make an unconfirmed claim.
+*Plain language:* 127 automatic checks that re-run on every change, including proof that every planted mistake is still caught and that no letter can make an unconfirmed claim.
 
 *Engineering note:* unit tests over the rules module (hand-calculated expectations), end-to-end pipeline tests over the fixture, corrections round-trip, style guardrails, schema rejection, formula-injection, escalation coverage. CI runs the suite plus the pipeline and asserts the trap catches, then uploads run evidence as artifacts.
 
@@ -118,4 +118,4 @@ To see these pieces working together against real data instead of reading about 
 
 *Plain language:* the paper trail: the design review of the original skill, one decision record per correction, the trap catalog, this guide, the plan for growing the system, and the running system's own decision history.
 
-*Engineering note:* [design-review/](design-review/README.md) (validity-checked problem analysis), [adr/](adr/) (31 authored decision records), [decision-log/](decision-log/) (operational decisions written by the system itself: corrections, style adoptions, sign-offs), [trap-registry.md](trap-registry.md), [scale-architecture.md](scale-architecture.md), and [HOURS.md](../HOURS.md) at the root for the engagement time log.
+*Engineering note:* [design-review/](design-review/README.md) (validity-checked problem analysis), [adr/](adr/) (32 authored decision records), [decision-log/](decision-log/) (operational decisions written by the system itself: corrections, style adoptions, sign-offs), [trap-registry.md](trap-registry.md), [scale-architecture.md](scale-architecture.md), and [HOURS.md](../HOURS.md) at the root for the engagement time log.

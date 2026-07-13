@@ -743,12 +743,12 @@ __DATASET_JSON__
       var statedTier = d.stated_tier !== undefined && d.stated_tier !== null ? d.stated_tier : (d.tier || "");
       return {
         id: i,
-        donor_name: d.donor_name,
+        donor_name: d.donor_name || "(missing name)",
         title: d.title || "",
-        region: d.region,
+        region: d.region || "",
         stated_tier: statedTier,
-        volunteer: d.volunteer,
-        gifts: d.gifts,
+        volunteer: d.volunteer || "No",
+        gifts: d.gifts || "",
         largest_gift: largest,
         lifetime_total: lifetime,
         last_gift_year: lastYear,
@@ -858,7 +858,10 @@ __DATASET_JSON__
   var editCountEl = document.getElementById("editCount");
 
   function pill(level, text) {
-    return '<span class="pill ' + level + '">' + text + "</span>";
+    // text can embed a field from an uploaded file (e.g. a mismatched
+    // stated_tier in flagText); escape it here so upload can never inject
+    // markup into the page, however unlikely a hostile CSV is in practice.
+    return '<span class="pill ' + level + '">' + escapeHtml(text) + "</span>";
   }
 
   function renderStats() {
@@ -936,9 +939,9 @@ __DATASET_JSON__
       if (row.edited) tr.className = "is-edited";
       tr.innerHTML =
         '<td><button class="row-detail-btn" data-id="' + row.id + '" type="button">▸</button></td>' +
-        '<td>' + row.donor_name + '</td>' +
-        '<td>' + row.region + '</td>' +
-        '<td class="editable" contenteditable="true" data-field="stated_tier" data-id="' + row.id + '">' + row.stated_tier + '</td>' +
+        '<td>' + escapeHtml(row.donor_name) + '</td>' +
+        '<td>' + escapeHtml(row.region) + '</td>' +
+        '<td class="editable" contenteditable="true" data-field="stated_tier" data-id="' + row.id + '">' + escapeHtml(row.stated_tier) + '</td>' +
         '<td>' + state.computedTier + '</td>' +
         '<td>' + (state.lapsed ? pill("warn", "lapsed") : pill("ok", "active")) + '</td>' +
         '<td class="num editable" contenteditable="true" data-field="largest_gift" data-id="' + row.id + '">' + money(row.largest_gift) + '</td>' +
@@ -1006,6 +1009,17 @@ __DATASET_JSON__
     setCleanStatus("Reset to the built-in fifty-donor dataset.");
   });
 
+  // Mirrors donor_rules.csv_safe exactly: Excel and Sheets execute a cell
+  // that begins with = + - or @, and this export is opened directly in
+  // Excel by fundraising staff, so a donor named "=HYPERLINK(...)" (typed
+  // in an edit, or arriving via an uploaded file) must land inert, the same
+  // guarantee the Python pipeline's own CSV writers make. See ADR 0018.
+  function csvSafe(value) {
+    var text = String(value);
+    if (["=", "+", "-", "@"].indexOf(text.charAt(0)) !== -1) return "'" + text;
+    return text;
+  }
+
   // Exports exactly the shape validate_input.py reads as raw input
   // (donor_name, title, tier, region, gifts, largest_gift, lifetime_total,
   // last_gift_year, volunteer), with the current, possibly-corrected stated
@@ -1019,7 +1033,7 @@ __DATASET_JSON__
         row.donor_name, row.title || "", row.stated_tier, row.region, row.gifts,
         row.largest_gift.toFixed(2), row.lifetime_total.toFixed(2), row.last_gift_year, row.volunteer,
       ].map(function (v) {
-        v = String(v);
+        v = csvSafe(v);
         return /[",]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
       });
       lines.push(cells.join(","));
@@ -1110,8 +1124,18 @@ __DATASET_JSON__
     });
   }
 
+  // localStorage can throw just from being touched, not only on quota:
+  // Safari private browsing and browsers with storage fully blocked raise a
+  // SecurityError on access, not only on setItem. Every call here is
+  // defensive so that a browser with no working storage still renders and
+  // reviews data normally; only save/restore/clear become unavailable.
   function loadSavedPayload() {
-    var raw = window.localStorage.getItem(STORAGE_KEY);
+    var raw;
+    try {
+      raw = window.localStorage.getItem(STORAGE_KEY);
+    } catch (err) {
+      return null;
+    }
     if (!raw) return null;
     try { return JSON.parse(raw); } catch (err) { return null; }
   }
@@ -1121,7 +1145,12 @@ __DATASET_JSON__
   // export back into the pipeline that generates letters.
   function saveCleanedDataset() {
     var payload = { savedAt: new Date().toISOString(), donors: serializeDonors() };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch (err) {
+      setCleanStatus("Could not save: this browser's storage is unavailable, full, or blocked.");
+      return payload;
+    }
     updateCleanControlsVisibility();
     return payload;
   }
@@ -1140,7 +1169,12 @@ __DATASET_JSON__
   }
 
   function clearSavedDataset() {
-    window.localStorage.removeItem(STORAGE_KEY);
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch (err) {
+      setCleanStatus("Could not clear: this browser's storage is unavailable or blocked.");
+      return;
+    }
     updateCleanControlsVisibility();
     setCleanStatus("Saved dataset cleared from this browser.");
   }
