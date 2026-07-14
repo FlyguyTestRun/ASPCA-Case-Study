@@ -1,6 +1,6 @@
 # Walkthrough script
 
-Read for the guided walkthrough embedded in `deliverable/donor-data-review.html`. Six beats, under two minutes total, each matched to a spotlighted part of the page. This script is also the basis for the training point worth carrying to the team: a well-written prompt only ever improves the odds a model behaves; a well-designed harness converts parts of that into a guarantee.
+Read for the guided walkthrough embedded in `deliverable/donor-data-review.html`. Seven beats, under two minutes total, each matched to a spotlighted part of the page. This script is also the basis for the training point worth carrying to the team: a well-written prompt only ever improves the odds a model behaves; a well-designed harness converts parts of that into a guarantee, and knowing what not to build is part of that same discipline.
 
 Recording notes: natural pace, brief pause between beats, no need to rush. See `app/assets/README.md` for how to record and swap this in.
 
@@ -18,8 +18,11 @@ Arithmetic runs once, in code, the same way every time. Every letter is checked 
 **4. The system admits what it does not know.**
 Below ninety percent confidence, a person reviews before anything goes out. Below seventy, the system stops and asks for help instead of guessing. That is a harness admitting uncertainty instead of hiding it.
 
-**5. One real example.**
+**5. What this system chose not to build.**
+This system also chose what not to build. No orchestration framework, no vector database, no machine learning, because a three-stage pipeline for fifty donors does not need any of them yet. Each one has a written trigger, the specific condition that would justify adding it. Restraint is a decision here, not an oversight.
+
+**6. One real example.**
 Shirley Magnusdottir was filed as Silver. Her actual giving computes to Gold. A well written prompt might catch this on a good day. This system catches it every single time, because the check is code, not a suggestion.
 
-**6. The whole difference, in one line.**
+**7. The whole difference, in one line.**
 A well designed prompt improves probability. A well designed harness replaces probability with a guarantee, wherever a guarantee is possible, and asks a human wherever it is not. Same model. Completely different system.

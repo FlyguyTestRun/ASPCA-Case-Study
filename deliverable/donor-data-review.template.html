@@ -634,6 +634,12 @@
     margin: 0.2rem 0 0.4rem;
   }
   .tour-caption p { margin: 0 0 0.85rem; font-size: 0.9rem; color: var(--ink-soft); }
+  .tour-caption .tour-ref {
+    margin: -0.5rem 0 0.85rem;
+    font-size: 0.78rem;
+  }
+  .tour-caption .tour-ref a { color: var(--accent); }
+  .tour-caption .tour-ref:empty { display: none; }
   .tour-controls {
     display: flex;
     align-items: center;
@@ -714,11 +720,11 @@
     <div class="brief-grid">
       <div class="brief-card">
         <h3>1. Improvements and their impact</h3>
-        <p>Ten defects in the original, each with what it would have done in production and the fix that closes it, are in the <a href="../assessment/ASSESSMENT.md">written assessment</a> and the <a href="../docs/trap-registry.md">trap registry</a>. The next section below shows the clearest one on one real donor: a tier the file states, checked against the money that is supposed to justify it.</p>
+        <p>Ten defects in the original, each with what it would have done in production and the fix that closes it, are in the <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/assessment/ASSESSMENT.md">written assessment</a> and the <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/trap-registry.md">trap registry</a>. The next section below shows the clearest one on one real donor: a tier the file states, checked against the money that is supposed to justify it.</p>
       </div>
       <div class="brief-card">
         <h3>2. The rewrite</h3>
-        <p><a href="../skill/charity-donor-outreach/SKILL.md">skill/charity-donor-outreach/</a>: three deterministic scripts plus one optional, bounded, off-by-default personalization step. Every number on this page is what that rewrite actually computed, not a mockup of what it should do.</p>
+        <p><a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/skill/charity-donor-outreach/SKILL.md">skill/charity-donor-outreach/</a>: three deterministic scripts plus one optional, bounded, off-by-default personalization step. Every number on this page is what that rewrite actually computed, not a mockup of what it should do.</p>
       </div>
     </div>
   </div>
@@ -730,7 +736,7 @@
 
     <h3>What changed in SKILL.md</h3>
     <p class="section-note">
-      <a href="../skill/charity-donor-outreach/SKILL.md">SKILL.md</a> is the
+      <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/skill/charity-donor-outreach/SKILL.md">SKILL.md</a> is the
       file an AI assistant reads to trigger this skill, not a design
       document; every line in it costs context at the exact moment that
       matters most. It went from 181 lines to 141. Every command is
@@ -740,7 +746,7 @@
       the pipeline table, every workflow step's exact command, the
       personalization guardrails, and the five hard rules, because those are
       what an agent actually has to follow to run this correctly, not
-      background on why. See <a href="../docs/adr/0036-skill-md-trimmed-to-operational-content.md">ADR 0036</a>.
+      background on why. See <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0036-skill-md-trimmed-to-operational-content.md">ADR 0036</a>.
     </p>
 
     <h3>Why there is a harness at all</h3>
@@ -760,11 +766,11 @@
       a guarantee as the problem allows:
     </p>
     <ul class="compare-steps architecture-list">
-      <li><strong>Schema validation, twice.</strong> Once on the raw donor row (<code>donor.schema.json</code>) before any business rule runs, once on the assembled letter (<code>letter_schema.json</code>) before any HTML exists. <a href="../docs/adr/0024-donor-schema-validation-layer.md">ADR 0024</a>, <a href="../docs/adr/0017-letter-schema-validation.md">ADR 0017</a>.</li>
-      <li><strong>Deterministic arithmetic.</strong> Every tier, every date check, every ask amount is one fixed function, tested, never a model guess. <a href="../docs/adr/0002-verify-inputs-never-trust-them.md">ADR 0002</a>, <a href="../docs/adr/0003-deterministic-arithmetic.md">ADR 0003</a>.</li>
-      <li><strong>A confidence rubric that escalates instead of hiding.</strong> Below 0.70 blocked outright, below 0.90 held for a person, and every band emits a structured escalation event, so uncertainty is visible, not swallowed. <a href="../docs/adr/0011-confidence-scoring-feedback-loop.md">ADR 0011</a>.</li>
-      <li><strong>Mandatory human gates on the highest-stakes records.</strong> Every Platinum donor, always, regardless of confidence. <a href="../docs/adr/0009-file-outputs-and-review-gates.md">ADR 0009</a>.</li>
-      <li><strong>One bounded exception.</strong> An optional, off-by-default personalization step, walled off in its own versioned prompt file, that can only ever touch phrasing, never a fact, a number, or a claim. <a href="../docs/adr/0025-prompt-extracted-into-its-own-versioned-asset.md">ADR 0025</a>.</li>
+      <li><strong>Schema validation, twice.</strong> Once on the raw donor row (<code>donor.schema.json</code>) before any business rule runs, once on the assembled letter (<code>letter_schema.json</code>) before any HTML exists. <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0024-donor-schema-validation-layer.md">ADR 0024</a>, <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0017-letter-schema-validation.md">ADR 0017</a>.</li>
+      <li><strong>Deterministic arithmetic.</strong> Every tier, every date check, every ask amount is one fixed function, tested, never a model guess. <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0002-verify-inputs-never-trust-them.md">ADR 0002</a>, <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0003-deterministic-arithmetic.md">ADR 0003</a>.</li>
+      <li><strong>A confidence rubric that escalates instead of hiding.</strong> Below 0.70 blocked outright, below 0.90 held for a person, and every band emits a structured escalation event, so uncertainty is visible, not swallowed. <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0011-confidence-scoring-feedback-loop.md">ADR 0011</a>.</li>
+      <li><strong>Mandatory human gates on the highest-stakes records.</strong> Every Platinum donor, always, regardless of confidence. <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0009-file-outputs-and-review-gates.md">ADR 0009</a>.</li>
+      <li><strong>One bounded exception.</strong> An optional, off-by-default personalization step, walled off in its own versioned prompt file, that can only ever touch phrasing, never a fact, a number, or a claim. <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0025-prompt-extracted-into-its-own-versioned-asset.md">ADR 0025</a>.</li>
     </ul>
     <p class="section-note">
       Bounded probability where a guarantee is not possible, a guarantee
@@ -781,6 +787,21 @@
       editing them on this page.
     </p>
     <dl class="config-grid" id="configGrid"></dl>
+
+    <h3 id="restraint">What this deliberately does not build yet</h3>
+    <p class="section-note">
+      A harness can be over-built the same way a prompt can be under-built.
+      Knowing when not to use an LLM extends to knowing when not to add
+      infrastructure: every item below was considered and left out on
+      purpose, each with the specific condition that would justify adding
+      it. The full table, with every deferred component: <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/scale-architecture.md">docs/scale-architecture.md</a>.
+    </p>
+    <ul class="compare-steps architecture-list" id="restraintList">
+      <li><strong>No orchestration framework.</strong> A linear three-stage pipeline does not need a graph engine. Add one when the workflow gains real branches: multi-step approvals, parallel campaign runs, human review resumed days later.</li>
+      <li><strong>No retrieval or vector database.</strong> Letter language comes from an approved library on purpose; retrieval adds variance where this needs none. Add one only if the system starts answering open questions instead of filling governed templates.</li>
+      <li><strong>No per-user identity and access management.</strong> A single-reviewer demo cannot honestly implement enterprise identity; pretending would be theater. Add it when the app is deployed for a team, so every approval and adoption records a real identity.</li>
+      <li><strong>No machine learning.</strong> Fifty records cannot train anything; the confidence rubric's penalty weights have no outcome data yet to learn from. Add it once a few hundred reviewer decisions exist to calibrate against, with the same fail, report, and pass gates unchanged around it.</li>
+    </ul>
   </div>
 </section>
 
@@ -921,7 +942,7 @@
       donor, run through what the original instructions literally say to do,
       and through what this pipeline actually does. Neither number is
       hypothetical; both are the real formula, applied to Ruth Andersen's
-      real gift history (<a href="../original/charity-donor-outreach/SKILL.md">the
+      real gift history (<a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/original/charity-donor-outreach/SKILL.md">the
       original SKILL.md</a>, row 24 of the donor table).
     </p>
     <div class="compare-grid">
@@ -2367,38 +2388,52 @@ __CAMPAIGN_CONFIG_JSON__
 
   var TOUR_STEPS = [
     {
-      label: "1 / 6, the result",
+      label: "1 / 7, the result",
       title: "The result",
       body: "A well written prompt raises the odds a model behaves. It never guarantees it. Fifty donor records ran through this redesigned system. Here is what verified actually looks like, and why the difference matters.",
       target: function () { return document.getElementById("statRow"); },
     },
     {
-      label: "2 / 6, checkpoint one",
+      label: "2 / 7, checkpoint one",
       title: "Never trust, always verify",
       body: "Before a model ever sees this data, every donor's tier, total, and date gets recomputed from the source numbers and checked in code. This single stage caught four donors filed under the wrong tier.",
       target: function () { return document.getElementById("dagNodeValidate"); },
+      refHref: "https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0002-verify-inputs-never-trust-them.md",
+      refText: "ADR 0002: verify inputs, never trust them",
     },
     {
-      label: "3 / 6, checkpoints two and three",
+      label: "3 / 7, checkpoints two and three",
       title: "Money and language, not guesses",
       body: "Arithmetic runs once, in code, the same way every time. Every letter is checked against a schema before it becomes a letter. A prompt asking a model to calculate or promise something is still just asking. This makes it structurally impossible to get wrong.",
       target: function () { return document.getElementById("dagNodeCalcGen"); },
+      refHref: "https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0003-deterministic-arithmetic.md",
+      refText: "ADR 0003: deterministic arithmetic",
     },
     {
-      label: "4 / 6, the review gate",
+      label: "4 / 7, the review gate",
       title: "The system admits what it does not know",
       body: "Below ninety percent confidence, a person reviews before anything goes out. Below seventy, the system stops and asks for help instead of guessing. That is a harness admitting uncertainty instead of hiding it.",
       target: function () { return document.getElementById("dagNodeGate"); },
+      refHref: "https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0011-confidence-scoring-feedback-loop.md",
+      refText: "ADR 0011: the confidence rubric",
     },
     {
-      label: "5 / 6, a real example",
+      label: "5 / 7, built small on purpose",
+      title: "What this system chose not to build",
+      body: "This system also chose what not to build. No orchestration framework, no vector database, no machine learning, because a three-stage pipeline for fifty donors does not need any of them yet. Each one has a written trigger, the specific condition that would justify adding it. Restraint is a decision here, not an oversight.",
+      target: function () { return document.getElementById("restraintList"); },
+      refHref: "https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/scale-architecture.md",
+      refText: "The full restraint table, with every deferred component",
+    },
+    {
+      label: "6 / 7, a real example",
       title: "One real example",
       body: "Shirley Magnusdottir was filed as Silver. Her actual giving computes to Gold. A well written prompt might catch this on a good day. This system catches it every single time, because the check is code, not a suggestion.",
       target: function () { return findDonorRow("Shirley Magnusdottir"); },
       onExit: clearDonorSearch,
     },
     {
-      label: "6 / 6, the whole difference",
+      label: "7 / 7, the whole difference",
       title: "The whole difference, in one line",
       body: "A well designed prompt improves probability. A well designed harness replaces probability with a guarantee, wherever a guarantee is possible, and asks a human wherever it is not. Same model. Completely different system.",
       target: function () { return document.getElementById("whyGrid"); },
@@ -2422,6 +2457,7 @@ __CAMPAIGN_CONFIG_JSON__
     '<div class="tour-step-label" id="tourStepLabel"></div>' +
     '<h4 id="tourTitle"></h4>' +
     '<p id="tourBody"></p>' +
+    '<p class="tour-ref" id="tourRef"></p>' +
     '<div class="tour-controls">' +
       '<div class="tour-dots" id="tourDots"></div>' +
       '<button type="button" class="icon-btn" id="tourPrev">Back</button>' +
@@ -2487,6 +2523,10 @@ __CAMPAIGN_CONFIG_JSON__
     document.getElementById("tourStepLabel").textContent = step.label;
     document.getElementById("tourTitle").textContent = step.title;
     document.getElementById("tourBody").textContent = step.body;
+    var refEl = document.getElementById("tourRef");
+    refEl.innerHTML = step.refHref
+      ? '<a href="' + step.refHref + '" target="_blank" rel="noopener">' + step.refText + "</a>"
+      : "";
     updateDots();
 
     if (el) {

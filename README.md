@@ -129,7 +129,7 @@ Or, [deliverable/donor-data-review.html](deliverable/donor-data-review.html) ope
 | [Requirements checklist](docs/requirements-checklist.md) | Every production-readiness control, named, hyperlinked to its implementation and its test |
 | [Design review](docs/design-review/README.md) | The original skill examined problem by problem, each with a validity verdict, the fix, and what changes at scale |
 | [Components guide](docs/components.md) | Every script, reference file, and interface explained for both non-technical readers and engineers |
-| [Decision records](docs/adr/) | 37 ADRs: one per correction, each with the problem, the decision, and the forward impact |
+| [Decision records](docs/adr/) | 38 ADRs: one per correction, each with the problem, the decision, and the forward impact |
 | [Decision history](docs/decision-log/) | ADR-style entries the running system writes for itself: applied corrections, style adoptions, batch sign-offs, each with a named approver |
 | [Trap registry](docs/trap-registry.md) | Every planted defect: where it hides, how it is caught, the test that proves it |
 | [Scale architecture](docs/scale-architecture.md) | What gets built when volume demands it, and the trigger for each addition |

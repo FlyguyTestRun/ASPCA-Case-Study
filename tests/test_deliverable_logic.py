@@ -896,15 +896,16 @@ class TestGuidedWalkthrough:
     array and pacing constant out of the built page, so the two-minute
     budget is an enforced property of the file, not a claim in a comment."""
 
-    def test_six_steps_in_order(self, tour_metadata):
-        assert tour_metadata["stepCount"] == 6
+    def test_seven_steps_in_order(self, tour_metadata):
+        assert tour_metadata["stepCount"] == 7
         assert tour_metadata["labels"] == [
-            "1 / 6, the result",
-            "2 / 6, checkpoint one",
-            "3 / 6, checkpoints two and three",
-            "4 / 6, the review gate",
-            "5 / 6, a real example",
-            "6 / 6, the whole difference",
+            "1 / 7, the result",
+            "2 / 7, checkpoint one",
+            "3 / 7, checkpoints two and three",
+            "4 / 7, the review gate",
+            "5 / 7, built small on purpose",
+            "6 / 7, a real example",
+            "7 / 7, the whole difference",
         ]
 
     def test_under_two_minutes_at_the_stated_pace(self, tour_metadata):
@@ -920,11 +921,11 @@ class TestGuidedWalkthrough:
 
     def test_most_step_targets_resolve_on_a_real_page(self, tour_metadata):
         """All targets except the live-search step resolve here: this stub's
-        querySelectorAll cannot simulate a rendered table row, so step 5
+        querySelectorAll cannot simulate a rendered table row, so step 6
         (donor row lookup) is exercised separately by manual browser testing,
         not by this headless check."""
         resolved = tour_metadata["targetsResolved"]
         for index, ok in enumerate(resolved):
-            if index == 4:
+            if index == 5:
                 continue
             assert ok, f"tour step {index + 1} target did not resolve"
