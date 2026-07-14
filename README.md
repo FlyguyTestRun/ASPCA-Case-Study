@@ -4,8 +4,19 @@ A case study in turning a plausible-looking AI prompt into a governed, testable 
 
 The brief: a nonprofit technology consultant drafted an AI agent skill, [charity-donor-outreach](original/charity-donor-outreach/SKILL.md), to help ASPCA fundraising staff generate personalized donor letters at scale. The task was to assess it, describe improvements and their impact, and rewrite it. The one-sentence diagnosis: the original is a prompt wearing a skill's file format. It asked a language model to be a database, a calculator, a compliance officer, and a mail room at once, and it trusted every byte of input on faith. The rebuild gives each job to the right tool, verifies everything it can compute, gates everything it cannot, and puts a human in front of anything that matters. The full reasoning behind that diagnosis, problem by problem, is in the [design review](docs/design-review/README.md).
 
+## Review path
+
+If you only read three things, read these in order:
+
+1. **[Assessment](assessment/ASSESSMENT.md):** the direct answer to the two case-study questions, plus the reasoning behind the architecture calls a reviewer would ask about first.
+2. **[Rewritten skill](skill/charity-donor-outreach/SKILL.md):** the lean instruction file an agent actually runs.
+3. **[Standalone HTML review artifact](deliverable/donor-data-review.html):** the interactive deliverable, open in any browser, no install.
+
+Everything else in the repository is the evidence behind those three: tests, generated output, decision records, and scale notes showing where production extensions attach without a redesign.
+
 ## Contents
 
+- [Review path](#review-path)
 - [Results on the case-study data](#results-on-the-case-study-data)
 - [How the pipeline works](#how-the-pipeline-works)
 - [Try it](#try-it)
@@ -29,7 +40,7 @@ The original skill's own 50-donor table, transcribed verbatim into [a test fixtu
 | Uncertain records | Indistinguishable from clean ones | Confidence rubric: below 0.70 blocked, below 0.90 held and escalated |
 | Letters | Free-form HTML in chat | Validated against a [schema](skill/charity-donor-outreach/references/letter_schema.json) as data, then rendered to files with a review manifest |
 | Hostile input | Trusted | CSV formula injection neutralized, uploads capped, donor text is data, never instructions |
-| Tests | None | **155**, re-run with the planted traps by [CI](.github/workflows/ci.yml) on every change |
+| Tests | None | **157**, re-run with the planted traps by [CI](.github/workflows/ci.yml) on every change |
 
 Full analysis: the [design review](docs/design-review/README.md) examines the original problem by problem with validity verdicts, and the [trap registry](docs/trap-registry.md) maps every planted defect to the mechanism that catches it and the test that proves it.
 
@@ -86,6 +97,8 @@ Want to see it happen rather than read about it? [`docs/run-walkthrough.md`](doc
 Requires Python 3.10 or newer. The pipeline uses only the standard library (`openpyxl` for Excel input); `pandas` and `streamlit` serve the review app, `pytest` the tests.
 
 ```bash
+python -m pip install openpyxl pandas streamlit pytest
+
 # The three stages, against the sample data (catches all four planted traps)
 python skill/charity-donor-outreach/scripts/validate_input.py \
   --input skill/charity-donor-outreach/assets/sample_donors.csv \
@@ -129,7 +142,7 @@ Or, [deliverable/donor-data-review.html](deliverable/donor-data-review.html) ope
 | [Requirements checklist](docs/requirements-checklist.md) | Every production-readiness control, named, hyperlinked to its implementation and its test |
 | [Design review](docs/design-review/README.md) | The original skill examined problem by problem, each with a validity verdict, the fix, and what changes at scale |
 | [Components guide](docs/components.md) | Every script, reference file, and interface explained for both non-technical readers and engineers |
-| [Decision records](docs/adr/) | 41 ADRs: one per correction, each with the problem, the decision, and the forward impact |
+| [Decision records](docs/adr/) | One record per correction, each with the problem, the decision, and the forward impact: the audit trail for why this system looks the way it does |
 | [Decision history](docs/decision-log/) | ADR-style entries the running system writes for itself: applied corrections, style adoptions, batch sign-offs, each with a named approver |
 | [Trap registry](docs/trap-registry.md) | Every planted defect: where it hides, how it is caught, the test that proves it |
 | [Scale architecture](docs/scale-architecture.md) | What gets built when volume demands it, and the trigger for each addition |

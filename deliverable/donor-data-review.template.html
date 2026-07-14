@@ -867,7 +867,7 @@
     <div class="brief-grid">
       <div class="brief-card">
         <h3>1. Improvements and their impact</h3>
-        <p>Every defect in the original, what it would have done in production, and the fix that closes it: grouped into ten themes in the <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/assessment/ASSESSMENT.md">written assessment</a>, itemized individually (thirteen, several sharing one theme) in the <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/trap-registry.md">trap registry</a>. The next section below shows the clearest one on one real donor: a tier the file states, checked against the money that is supposed to justify it.</p>
+        <p>Ten distinct defects in the original, each with what it would have done in production and the fix that closes it: grouped into seven themes in the <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/assessment/ASSESSMENT.md">written assessment</a>, itemized individually (thirteen rows, since it also splits the tier mismatches out by donor) in the <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/trap-registry.md">trap registry</a>. The next section below shows the clearest one on one real donor: a tier the file states, checked against the money that is supposed to justify it.</p>
       </div>
       <div class="brief-card">
         <h3>2. The rewrite</h3>
@@ -886,19 +886,22 @@
       <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/skill/charity-donor-outreach/SKILL.md">SKILL.md</a> is the
       file an AI assistant reads to trigger this skill, not a design
       document; every line in it costs context at the exact moment that
-      matters most. This is a separate pass from the rewrite itself: by the
-      time this trim happened, the rewritten skill file (the original is
-      173 lines) had grown to 181 as pipeline detail, decision links, and
-      rationale accumulated across the project; this pass brought that
-      181-line file down to 141 by cutting the rationale, not the
-      structure. Every command is unchanged, byte for byte, confirmed
-      by diff. What was cut was
-      rationale, paragraphs explaining why a decision was made, collapsed to
-      one line pointing at the ADR that explains it in full. What stayed:
-      the pipeline table, every workflow step's exact command, the
+      matters most. It has been trimmed twice, each pass cutting rationale
+      rather than structure. The rewrite itself (the original is 173 lines)
+      first grew to 181 as pipeline detail and decision links accumulated
+      across the project, then came down to 141 by moving that rationale out
+      to one-line ADR pointers (<a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0036-skill-md-trimmed-to-operational-content.md">ADR 0036</a>). A second pass then brought it
+      to 100: the pipeline overview table came out (this page's own diagram
+      above says the same thing to a human, and an agent already gets the
+      exact commands below it), along with a paragraph explaining why
+      personalization is optional and a closing list of reference documents,
+      neither of which changes what the agent actually does next
+      (<a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0042-skill-md-trimmed-again-to-operational-minimum.md">ADR 0042</a>). Every command across both
+      passes is unchanged, byte for byte, confirmed by diff each time. What
+      remains: the required inputs, every workflow step's exact command, the
       personalization guardrails, and the five hard rules, because those are
       what an agent actually has to follow to run this correctly, not
-      background on why. See <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0036-skill-md-trimmed-to-operational-content.md">ADR 0036</a>.
+      background on why.
     </p>
 
     <h3>Why there is a harness at all</h3>
@@ -1231,7 +1234,6 @@
             <th class="sortable" data-sort="lifetime_total">Lifetime</th>
             <th class="sortable" data-sort="last_gift_year">Last gift yr</th>
             <th class="sortable" data-sort="ask_amount">Ask</th>
-            <th class="sortable" data-sort="confidence">Confidence</th>
             <th class="sortable" data-sort="review">Review</th>
             <th class="sortable" data-sort="flag">Flag</th>
             <th>Merge</th>
@@ -1458,8 +1460,8 @@ __CAMPAIGN_CONFIG_JSON__
 
     var text;
     if (reviewReasons.length) text = "No automated letter: route to personal outreach";
-    else if (level === "mandatory") text = row.stated_tier === "Platinum" ? "Platinum: always reviewed" : "Confidence " + confidence.toFixed(2) + ": mandatory review";
-    else if (level === "recommended") text = "Confidence " + confidence.toFixed(2) + ": recommended review";
+    else if (level === "mandatory") text = row.stated_tier === "Platinum" ? "Platinum: always reviewed" : "Mandatory review";
+    else if (level === "recommended") text = "Recommended review";
     else text = "No review required";
 
     return { band: band, level: level, text: text, confidence: confidence };
@@ -1607,7 +1609,6 @@ __CAMPAIGN_CONFIG_JSON__
       case "lifetime_total": return row.lifetime_total || 0;
       case "last_gift_year": return row.last_gift_year || 0;
       case "ask_amount": return row.ask_amount || -1;
-      case "confidence": return parseFloat(row.original_confidence) || -1;
       case "review": return review.level;
       case "flag": return state.flagLevel;
       case "reviewed": return row.reviewed ? 1 : 0;
@@ -1665,7 +1666,6 @@ __CAMPAIGN_CONFIG_JSON__
         '<td class="num">' + money(row.lifetime_total) + '</td>' +
         '<td class="num editable" contenteditable="true" data-field="last_gift_year" data-id="' + row.id + '">' + formatLastGiftDate(row.last_gift_year) + '</td>' +
         '<td class="num">' + (row.ask_amount ? money(row.ask_amount) : "—") + '</td>' +
-        '<td class="num">' + (row.original_confidence || "—") + '</td>' +
         '<td>' + pill(reviewPillLevel(review.level), review.text) + '</td>' +
         '<td>' + pill(state.flagLevel, state.flagText) + '</td>' +
         '<td>' + mergeStatusPill(row) + '</td>' +
@@ -1677,7 +1677,7 @@ __CAMPAIGN_CONFIG_JSON__
       detail.className = "detail-row hidden";
       detail.dataset.detailFor = row.id;
       var td = document.createElement("td");
-      td.colSpan = 15;
+      td.colSpan = 14;
       td.className = "detail-cell";
       td.innerHTML = renderDetailCell(row);
       detail.appendChild(td);

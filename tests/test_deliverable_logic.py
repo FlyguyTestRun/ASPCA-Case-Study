@@ -947,3 +947,29 @@ class TestGuidedWalkthrough:
             if index == 5:
                 continue
             assert ok, f"tour step {index + 1} target did not resolve"
+
+
+class TestConfidenceScoreIsNotShown:
+    """The raw confidence score (a column, and the number embedded in the
+    Review pill's text) was deliberately removed from the on-page table:
+    showing the internal weighting invited a reviewer to read meaning into
+    the specific decimal rather than the review level it produces. The
+    pipeline still computes and exports the real score in the CSV/manifest;
+    only the on-page table and its pill text stop surfacing it (ADR 0043)."""
+
+    def test_no_confidence_column_header(self):
+        if not DELIVERABLE.exists():
+            pytest.skip("deliverable/donor-data-review.html not built")
+        html = DELIVERABLE.read_text(encoding="utf-8")
+        assert 'data-sort="confidence"' not in html
+
+    def test_review_pill_text_has_no_raw_score(self):
+        if not DELIVERABLE.exists():
+            pytest.skip("deliverable/donor-data-review.html not built")
+        html = DELIVERABLE.read_text(encoding="utf-8")
+        # "Confidence decides who reviews what" (a static explanatory
+        # heading) is fine; a decimal score following the word, the old
+        # leaked pattern ("Confidence 0.90: mandatory review"), is not.
+        assert not re.search(r"Confidence \d", html), (
+            "a raw confidence score leaked back into the page's visible text"
+        )
