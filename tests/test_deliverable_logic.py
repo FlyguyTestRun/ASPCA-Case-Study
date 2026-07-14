@@ -725,6 +725,9 @@ def run_archive_and_review_flow_in_node(html: str, raw_csv_text: str) -> dict:
         var csvLines = buildCleanedCsvText().split("\\n");
         var manifestLines = buildManifestCsvText().split("\\n");
 
+        var snapshotHtml = buildFinalSnapshotHtml(new Date("2026-01-01T00:00:00Z"));
+        var firstMandatoryName = donors[mandatoryIds[0]].donor_name;
+
         console.log(JSON.stringify({
           mandatoryCount: mandatoryIds.length,
           beforeAllReviewed: beforeAllReviewed,
@@ -733,6 +736,10 @@ def run_archive_and_review_flow_in_node(html: str, raw_csv_text: str) -> dict:
           manifestHeader: manifestLines[0],
           manifestLineCount: manifestLines.length,
           slugExample: fileSlug("Ada Yamamoto-Pierce"),
+          snapshotHasTitle: snapshotHtml.indexOf("Donor review, final snapshot") !== -1,
+          snapshotRowCount: (snapshotHtml.match(/<tr>/g) || []).length,
+          snapshotHasMandatoryDonorName: snapshotHtml.indexOf(firstMandatoryName) !== -1,
+          snapshotYesCount: (snapshotHtml.match(/<td>Yes<\\/td>/g) || []).length,
         }));
         """
     )
@@ -782,6 +789,17 @@ class TestReviewGateAndArchiveExports:
 
     def test_file_slug_is_filesystem_safe(self, archive_and_review_flow):
         assert archive_and_review_flow["slugExample"] == "ada-yamamoto-pierce"
+
+    def test_final_snapshot_html_reflects_reviewed_state(self, archive_and_review_flow):
+        """The archive's static snapshot (ADR 0038's companion fix: the zip
+        must carry a durable record of the reviewed state, not just the raw
+        CSVs) has to be built from the same donors array the CSVs use, not
+        a copy of the live interactive page, since that page would discard
+        any in-browser corrections the moment the snapshot was reopened."""
+        assert archive_and_review_flow["snapshotHasTitle"] is True
+        assert archive_and_review_flow["snapshotRowCount"] == 51  # header row + 50 donors
+        assert archive_and_review_flow["snapshotHasMandatoryDonorName"] is True
+        assert archive_and_review_flow["snapshotYesCount"] == archive_and_review_flow["mandatoryCount"]
 
 
 @pytest.fixture(scope="module")

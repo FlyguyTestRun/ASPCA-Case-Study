@@ -145,6 +145,79 @@
   .stat.crit .n { color: var(--crit); }
   .stat.warn .n { color: var(--warn); }
 
+  .action-banner {
+    margin: 1.1rem 0 0;
+    padding: 0.7rem 1rem;
+    border-radius: var(--radius);
+    background: var(--crit-soft);
+    border: 1px solid var(--crit);
+    color: var(--ink);
+    font-size: 0.88rem;
+  }
+  .action-banner button {
+    margin-left: 0.5rem;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.8rem;
+  }
+
+  /* ---------- process nav ---------- */
+  .process-nav {
+    position: sticky;
+    top: 0;
+    z-index: 500;
+    display: flex;
+    gap: 0;
+    background: var(--paper-raised);
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    overflow-x: auto;
+  }
+  .process-step {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--line);
+    border-radius: 0;
+    color: var(--ink-soft);
+    font-weight: 500;
+    font-size: 0.78rem;
+    padding: 0.6rem 0.5rem;
+    white-space: nowrap;
+  }
+  .process-step:last-child { border-right: none; }
+  .process-step:hover { background: var(--paper); filter: none; color: var(--ink); }
+  .process-step-n {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.3rem;
+    height: 1.3rem;
+    border-radius: 50%;
+    border: 1px solid var(--ink-soft);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    flex-shrink: 0;
+  }
+  .process-step-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.2rem;
+    height: 1.2rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: #fff;
+  }
+  .process-step-badge:empty { display: none; }
+  .process-step-badge.crit { background: var(--crit); }
+  .process-step-badge.warn { background: var(--warn); }
+
   /* ---------- section shell ---------- */
   section { padding: 2.75rem 0; border-bottom: 1px solid var(--line); }
   section:last-of-type { border-bottom: none; }
@@ -378,6 +451,25 @@
   }
   .toolbar input[type="search"] { min-width: 220px; flex: 1 1 220px; }
   .toolbar .spacer { flex: 1 1 auto; }
+  .toolbar.primary-toolbar {
+    padding: 0.85rem 1rem;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+  }
+  .advanced-tools {
+    margin: 0.25rem 0 1.25rem;
+    padding: 0.15rem 0 0;
+    border-top: 1px solid var(--line);
+  }
+  .advanced-tools summary {
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    padding: 0.6rem 0;
+  }
+  .advanced-tools[open] summary { color: var(--ink); }
+  .advanced-tools > .toolbar, .advanced-tools > .section-note { margin-top: 0.75rem; }
   .toolbar input[type="file"] {
     font-family: var(--font-body);
     font-size: 0.82rem;
@@ -704,8 +796,34 @@
       <span class="tour-cta-note">Why a well-designed prompt is not enough, walked through live on this data.</span>
     </div>
     <div class="stat-row" id="statRow"></div>
+    <p class="action-banner" id="actionBanner" hidden></p>
   </div>
 </header>
+
+<nav class="process-nav" id="processNav" aria-label="Review process">
+  <button type="button" class="process-step" data-step="1">
+    <span class="process-step-n">1</span>
+    <span class="process-step-label">Data loaded</span>
+  </button>
+  <button type="button" class="process-step" data-step="2">
+    <span class="process-step-n">2</span>
+    <span class="process-step-label">Errors found</span>
+    <span class="process-step-badge crit" id="stepBadgeErrors"></span>
+  </button>
+  <button type="button" class="process-step" data-step="3">
+    <span class="process-step-n">3</span>
+    <span class="process-step-label">Review &amp; correct</span>
+  </button>
+  <button type="button" class="process-step" data-step="4">
+    <span class="process-step-n">4</span>
+    <span class="process-step-label">Sign off</span>
+    <span class="process-step-badge warn" id="stepBadgeSignoff"></span>
+  </button>
+  <button type="button" class="process-step" data-step="5">
+    <span class="process-step-n">5</span>
+    <span class="process-step-label">Export final package</span>
+  </button>
+</nav>
 
 <section id="brief">
   <div class="wrap">
@@ -998,6 +1116,11 @@
     </p>
     <p class="review-progress" id="reviewProgress" role="status" aria-live="polite">Required reviews: 0 of 0 complete.</p>
 
+    <div class="toolbar primary-toolbar" id="cleanToolbar">
+      <button id="applyCorrectionsBtn" type="button">Apply suggested corrections</button>
+      <span class="section-note" style="margin:0;">Fixes every held mismatch at once, the same correction a person approves in the real pipeline, not a different one.</span>
+    </div>
+
     <div class="toolbar">
       <input type="search" id="search" placeholder="Search donor name…" aria-label="Search donor name" />
       <select id="statusFilter" aria-label="Filter by status">
@@ -1011,34 +1134,36 @@
       <button id="exportBtn" type="button">Download cleaned CSV</button>
     </div>
 
-    <p class="section-note">
-      Or upload your own donor file, CSV or the same shape, to validate and
-      clean it here before it goes back through the pipeline. A mismatched
-      tier or a status the date policy contradicts is held until you approve
-      the fix, one cell at a time or all at once.
-    </p>
+    <details class="advanced-tools">
+      <summary>Advanced: upload your own file, merge in another list, or manage saved browser state</summary>
 
-    <div class="toolbar" id="cleanToolbar">
-      <input type="file" id="csvUpload" accept=".csv" aria-label="Upload raw donor CSV" />
-      <button class="ghost" id="applyCorrectionsBtn" type="button">Apply suggested corrections</button>
-      <div class="spacer"></div>
-      <button class="ghost" id="saveCleanedBtn" type="button">Save cleaned dataset</button>
-      <button class="ghost" id="restoreCleanedBtn" type="button" hidden>Restore saved dataset</button>
-      <button class="ghost" id="clearSavedBtn" type="button" hidden>Clear saved data</button>
-    </div>
+      <p class="section-note">
+        Upload your own donor file, CSV or the same shape, to validate and
+        clean it here before it goes back through the pipeline. A mismatched
+        tier or a status the date policy contradicts is held until you approve
+        the fix, one cell at a time or all at once.
+      </p>
+      <div class="toolbar">
+        <input type="file" id="csvUpload" accept=".csv" aria-label="Upload raw donor CSV" />
+        <div class="spacer"></div>
+        <button class="ghost" id="saveCleanedBtn" type="button">Save cleaned dataset</button>
+        <button class="ghost" id="restoreCleanedBtn" type="button" hidden>Restore saved dataset</button>
+        <button class="ghost" id="clearSavedBtn" type="button" hidden>Clear saved data</button>
+      </div>
 
-    <p class="section-note">
-      Growing the list, or updating it with a newer export: merge in a
-      second file rather than replacing the current one. Matched by donor
-      name; a donor in both files with different data is held for review,
-      never silently overwritten, the same treatment every mismatch on this
-      page already gets.
-    </p>
-    <div class="toolbar" id="mergeToolbar">
-      <input type="file" id="mergeUpload" accept=".csv" aria-label="Upload a file to merge in" />
-      <button class="ghost" id="mergeBtn" type="button">Merge into current list</button>
-    </div>
-    <p id="mergeStatus" role="status" aria-live="polite"></p>
+      <p class="section-note">
+        Growing the list, or updating it with a newer export: merge in a
+        second file rather than replacing the current one. Matched by donor
+        name; a donor in both files with different data is held for review,
+        never silently overwritten, the same treatment every mismatch on this
+        page already gets.
+      </p>
+      <div class="toolbar" id="mergeToolbar">
+        <input type="file" id="mergeUpload" accept=".csv" aria-label="Upload a file to merge in" />
+        <button class="ghost" id="mergeBtn" type="button">Merge into current list</button>
+      </div>
+      <p id="mergeStatus" role="status" aria-live="polite"></p>
+    </details>
 
     <div class="toolbar" id="archiveToolbar">
       <span class="section-note" style="margin:0;">Every mandatory-review record above must be checked off in the Reviewed column before this unlocks.</span>
@@ -1346,6 +1471,22 @@ __CAMPAIGN_CONFIG_JSON__
       '<div class="stat warn"><span class="n">' + warn + '</span><span class="l">Held for review</span></div>' +
       '<div class="stat crit"><span class="n">' + crit + '</span><span class="l">Needs correction</span></div>' +
       '<div class="stat warn"><span class="n">' + mandatory + '</span><span class="l">Mandatory letter review</span></div>';
+
+    var badge = document.getElementById("stepBadgeErrors");
+    if (badge) badge.textContent = crit > 0 ? String(crit) : "";
+
+    var banner = document.getElementById("actionBanner");
+    if (banner) {
+      if (crit > 0) {
+        banner.hidden = false;
+        banner.innerHTML = (crit === 1 ? "1 record needs" : crit + " records need") +
+          " correction before this batch is ready to send." +
+          ' <button type="button" id="bannerJumpBtn">Review and fix now &rarr;</button>';
+      } else {
+        banner.hidden = true;
+        banner.innerHTML = "";
+      }
+    }
   }
 
   function editedCount() {
@@ -1486,6 +1627,9 @@ __CAMPAIGN_CONFIG_JSON__
     }
     var archiveBtn = document.getElementById("archiveBtn");
     if (archiveBtn) archiveBtn.disabled = done < mandatory.length;
+
+    var signoffBadge = document.getElementById("stepBadgeSignoff");
+    if (signoffBadge) signoffBadge.textContent = mandatory.length ? done + "/" + mandatory.length : "";
   }
 
   tbody.addEventListener("click", function (e) {
@@ -1782,11 +1926,49 @@ __CAMPAIGN_CONFIG_JSON__
     renderArchiveLog();
   });
 
+  // A static, non-interactive record of the reviewed state at export time:
+  // deliberately not a snapshot of the live page's own HTML, since this
+  // page re-renders its table from the embedded dataset on every load and
+  // would silently discard any in-browser corrections the moment the
+  // snapshot file was reopened, exactly the kind of quiet failure this
+  // whole project exists to catch. Built from the same donors array and
+  // the same review logic buildManifestCsvText() already uses, so it can
+  // never disagree with the CSV shipped in the same archive.
+  function buildFinalSnapshotHtml(now) {
+    var rows = donors.map(function (row) {
+      var state = deriveState(row);
+      var review = deriveReview(row, state);
+      var slug = fileSlug(row.donor_name);
+      var hasLetter = !!row.letter_html;
+      var letterCell = hasLetter
+        ? '<a href="letters/' + slug + '.html">letters/' + slug + ".html</a>"
+        : escapeHtml(row.no_letter_reason || review.text);
+      return "<tr><td>" + escapeHtml(row.donor_name) + "</td><td>" + escapeHtml(row.region || "") + "</td>" +
+        "<td>" + escapeHtml(row.stated_tier || "") + "</td><td>" + escapeHtml(state.computedTier || "") + "</td>" +
+        "<td>" + escapeHtml(state.flagText) + "</td><td>" + (row.ask_amount ? money(row.ask_amount) : "—") + "</td>" +
+        "<td>" + escapeHtml(review.level) + "</td><td>" + (row.reviewed ? "Yes" : "No") + "</td>" +
+        "<td>" + letterCell + "</td></tr>";
+    }).join("");
+    return "<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>Donor review, final snapshot</title>" +
+      "<style>body{font-family:system-ui,-apple-system,sans-serif;margin:2rem;color:#1a1a1a;background:#fff}" +
+      "table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:0.4rem 0.6rem;font-size:0.85rem;text-align:left}" +
+      "th{background:#f0f0f0}h1{font-size:1.3rem}p{color:#444}</style></head><body>" +
+      "<h1>Donor review, final snapshot</h1>" +
+      "<p>Archived " + escapeHtml(now.toISOString().slice(0, 16).replace("T", " ")) + " UTC. " +
+      donors.length + " donors, reflecting every correction and review checkbox as of this export. " +
+      "Not the interactive page itself (opening this file will not let you edit anything further), " +
+      "a fixed record of what this batch looked like when it was archived.</p>" +
+      "<table><thead><tr><th>Donor</th><th>Region</th><th>Stated tier</th><th>Computed tier</th>" +
+      "<th>Status</th><th>Ask</th><th>Review level</th><th>Reviewed</th><th>Letter</th></tr></thead>" +
+      "<tbody>" + rows + "</tbody></table></body></html>";
+  }
+
   document.getElementById("archiveBtn").addEventListener("click", function () {
     var now = new Date();
     var entries = [
       { name: "donors_cleaned.csv", content: buildCleanedCsvText() },
       { name: "manifest.csv", content: buildManifestCsvText() },
+      { name: "review-page-final.html", content: buildFinalSnapshotHtml(now) },
     ];
     var letterCount = 0, reviewedCount = 0;
     donors.forEach(function (row) {
@@ -2385,6 +2567,41 @@ __CAMPAIGN_CONFIG_JSON__
     document.getElementById("search").value = "";
     renderRows();
   }
+
+  // The process nav and the action banner both jump to the same five
+  // waypoints in the review flow. Step 2 additionally sets the status
+  // filter to "Needs correction" so the flagged rows are the only ones
+  // visible the moment a first-time reviewer lands there, since a filter
+  // dropdown left on "All statuses" was the single biggest reason the
+  // suggested corrections were easy to miss on this page.
+  function jumpToStep(step) {
+    var target = null;
+    if (step === "1") {
+      target = document.querySelector("#data h2");
+    } else if (step === "2") {
+      document.getElementById("statusFilter").value = "crit";
+      renderRows();
+      target = document.getElementById("donorTable");
+    } else if (step === "3") {
+      target = document.getElementById("cleanToolbar");
+    } else if (step === "4") {
+      target = document.getElementById("reviewProgress");
+    } else if (step === "5") {
+      target = document.getElementById("archiveToolbar");
+    }
+    if (target) {
+      var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    }
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".process-step"), function (btn) {
+    btn.addEventListener("click", function () { jumpToStep(btn.dataset.step); });
+  });
+
+  document.getElementById("actionBanner").addEventListener("click", function (e) {
+    if (e.target && e.target.id === "bannerJumpBtn") jumpToStep("2");
+  });
 
   var TOUR_STEPS = [
     {
