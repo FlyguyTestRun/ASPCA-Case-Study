@@ -1,12 +1,3 @@
----
-name: charity-donor-outreach
-description: >-
-  Generate personalized fundraising outreach letters from a donor file (CSV or
-  XLSX) for a specific campaign. Use only when the user provides a donor list
-  and asks for donor outreach or appeal letters. Do not use for general email,
-  event planning, reporting, or grant writing tasks.
----
-
 # Charity Donor Outreach Letter Generator
 
 An orchestrator, not a calculator: every rule with one right answer is code,
