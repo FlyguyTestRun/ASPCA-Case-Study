@@ -7,7 +7,7 @@ by anyone regardless of their technical setup.
 
 ## What it does
 
-- Opens with a "Start the guided walkthrough" control: sixteen steps
+- Opens with a "Start the guided walkthrough" control: seventeen steps
   covering what the original prompt would have done, the architecture that
   fixes it stage by stage (naming the real script and its decision record
   at each one), and a live demonstration that actually performs real
@@ -98,7 +98,7 @@ download to the local machine. Design records: [ADR 0029](../docs/adr/0029-brows
 
 ## The guided walkthrough
 
-Sixteen steps, in four movements: the original prompt's problems and how
+Seventeen steps, in four movements: the original prompt's problems and how
 they threaten Doug's own goals (consistent, reliable, scalable); the
 architecture stage by stage, each one naming its real script and decision
 record; a live demonstration that filters the table to the flagged rows,

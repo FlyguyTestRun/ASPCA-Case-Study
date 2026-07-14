@@ -53,7 +53,7 @@ A few controls this system has that go past what is usually asked for in a first
 - **Confidence-banded escalation** (fail below 0.70, held below 0.90, webhook-ready events): [ADR 0011](adr/0011-confidence-scoring-feedback-loop.md).
 - **Donor ID collision detection**, since two different names can slug to the same letter filename at scale: [ADR 0022](adr/0022-donor-id-collisions-and-stale-output.md).
 - **Stale-output prevention**, so a donor excluded from a later run can never leave an orphaned file with no manifest row: [ADR 0022](adr/0022-donor-id-collisions-and-stale-output.md).
-- **A standalone, offline HTML deliverable** with a sixteen-step guided walkthrough that performs real operations on the real data as it plays, for review by anyone without Python installed: [ADR 0021](adr/0021-standalone-review-artifact.md), [ADR 0044](adr/0044-the-walkthrough-becomes-a-live-demonstration.md).
+- **A standalone, offline HTML deliverable** with a seventeen-step guided walkthrough that performs real operations on the real data as it plays, for review by anyone without Python installed: [ADR 0021](adr/0021-standalone-review-artifact.md), [ADR 0044](adr/0044-the-walkthrough-becomes-a-live-demonstration.md).
 - **A data provenance audit**, verifying the fixture is a verbatim transcription of the original skill's own table: [ADR 0019](adr/0019-data-provenance-and-fixture-fidelity.md).
 - **A clean-room agent dry run**: every command in `SKILL.md` executed verbatim, from a scratch directory, with no prior knowledge of the deeper build, proving the skill works the way an AI assistant discovering and following it actually would, independent of any interface built on top: [ADR 0028](adr/0028-verified-as-an-agent-skill.md).
 

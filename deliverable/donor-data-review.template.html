@@ -825,7 +825,7 @@
         <span class="tour-cta-icon" aria-hidden="true">▶</span>
         Start the guided walkthrough
       </button>
-      <span class="tour-cta-note">Sixteen steps: the original problem, the architecture that fixes it, and a live demonstration catching and correcting a real error, on this data.</span>
+      <span class="tour-cta-note">Seventeen steps: the original problem, the architecture that fixes it, and a live demonstration catching and correcting a real error, on this data.</span>
     </div>
     <div class="stat-row" id="statRow"></div>
     <p class="action-banner" id="actionBanner" hidden></p>
@@ -1014,7 +1014,7 @@
         <line x1="340" y1="100" x2="395" y2="100" class="dag-arrow" marker-end="url(#arrowhead)" />
 
         <!-- calculate -->
-        <g class="dag-node stage">
+        <g class="dag-node stage" id="dagNodeCalculate">
           <rect x="400" y="70" width="150" height="60" rx="6" />
           <text class="title" x="410" y="93">2. Calculate</text>
           <text class="sub" x="410" y="108">deterministic ask math,</text>
@@ -1026,7 +1026,7 @@
         <line x1="550" y1="100" x2="605" y2="100" class="dag-arrow" marker-end="url(#arrowhead)" />
 
         <!-- generate -->
-        <g class="dag-node stage">
+        <g class="dag-node stage" id="dagNodeGenerate">
           <rect x="610" y="70" width="150" height="60" rx="6" />
           <text class="title" x="620" y="93">3. Generate</text>
           <text class="sub" x="620" y="108">letter model checked</text>
@@ -1034,9 +1034,6 @@
         </g>
         <text class="dag-annot" x="615" y="150">no unconfirmed claims possible</text>
         <text class="dag-script" x="615" y="165">scripts/generate_letters.py &#8594; output/letters/</text>
-
-        <!-- invisible bridge spanning stages 2+3, used only as a tour spotlight target -->
-        <rect id="dagNodeCalcGen" x="395" y="65" width="365" height="70" fill="transparent" stroke="none" />
 
         <line x1="760" y1="100" x2="815" y2="100" class="dag-arrow" marker-end="url(#arrowhead)" />
 
@@ -2666,8 +2663,10 @@ __CAMPAIGN_CONFIG_JSON__
   // ============================================================
   // Guided walkthrough
   //
-  // Sixteen beats: the original problem, the architecture that fixes it,
-  // then a live demonstration that actually performs real operations on
+  // Seventeen beats: the original problem, the architecture that fixes
+  // it (each of the three pipeline stages spotlighted individually, not
+  // combined, so each one gets its own explanation of what it does and
+  // why), then a live demonstration that actually performs real operations on
   // the real embedded data (filters to the flagged rows, applies the
   // suggested corrections, checks off review, opens the export gate) as
   // it plays, not narration over a static screenshot. No embedded audio;
@@ -2770,47 +2769,55 @@ __CAMPAIGN_CONFIG_JSON__
   // the tour early never leaves the page in a demo-modified state.
   var TOUR_STEPS = [
     {
-      label: "1 / 16, the result",
+      label: "1 / 17, the result",
       title: "The result",
       body: "A well written prompt raises the odds a model behaves. It never guarantees it. Fifty donor records ran through this redesigned system. Here is what verified actually looks like, why the difference matters, and by the end of this walkthrough, exactly how to run your own donor file through the same checks.",
       target: function () { return document.getElementById("statRow"); },
     },
     {
-      label: "2 / 16, the original problem",
+      label: "2 / 17, the original problem",
       title: "What the original prompt would have done",
       body: "The original skill embedded the donor list inside its own instructions, trusted every stated field on faith, and asked a model to do arithmetic. Doug's brief asked for outreach that is consistent, reliable, and scalable. A prompt that trusts unverified data on faith is none of those three: not consistent, because the same donor can get a different answer depending on how the model reads the file that day; not reliable, because a wrong tier means a wrong ask, sent with total confidence; not scalable, because every one of those risks multiplies with every donor added to the list.",
       target: function () { return document.getElementById("brief"); },
     },
     {
-      label: "3 / 16, one real example",
+      label: "3 / 17, one real example",
       title: "The gap, in dollars",
       body: "Ruth Andersen's file says Silver. Her actual giving computes to Gold. Followed literally, the original skill's own steps ask her for fifteen hundred and six dollars. This system recomputes her tier from her real gift history, catches the mismatch, and asks for twenty-four fifty. Nine hundred and forty-four dollars, from one label nobody checked against the money it was supposed to describe.",
       target: function () { return document.getElementById("comparison"); },
     },
     {
-      label: "4 / 16, the orchestrator",
+      label: "4 / 17, the orchestrator",
       title: "SKILL.md: the file that runs this, not explains it",
       body: "SKILL.md is what an AI assistant actually reads to trigger this system. It holds the required inputs, the exact command for every stage, and five hard rules, nothing else. The reasoning behind each of those lives in decision records, one link away, not inline, because every line in this file costs context at the exact moment an agent is deciding what to do next.",
       target: function () { return document.getElementById("architecture"); },
     },
     {
-      label: "5 / 16, stage one",
-      title: "Stage 1: validate, never trust",
-      body: "validate_input.py is the first thing that touches a donor file, before a model ever sees it. It recomputes every tier, total, and date from the source numbers and checks the stated value against what it actually computes. This single stage is what caught the four mislabeled tiers in this file, including one my own manual read of the table had missed on the first pass.",
+      label: "5 / 17, stage 1 of 3: validate",
+      title: "Validate: never trust, always verify",
+      body: "validate_input.py is the first thing that touches a donor file, before a model ever sees it. It recomputes every tier, total, and date from the source numbers and checks the stated value against what it actually computes, writing anything that disagrees to an exceptions report instead of guessing. This single stage is what caught the four mislabeled tiers in this file, including one my own manual read of the table had missed on the first pass.",
       target: function () { return document.getElementById("dagNodeValidate"); },
       refHref: "https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0002-verify-inputs-never-trust-them.md",
       refText: "ADR 0002: verify inputs, never trust them",
     },
     {
-      label: "6 / 16, stages two and three",
-      title: "Money and language, not guesses",
-      body: "calculate_ask.py runs the ask formula once, in code, the same fixed order every time, with a full trace. generate_letters.py then assembles the letter and checks it against a schema before any HTML exists. A prompt asking a model to calculate or promise something is still just asking; running it in code instead makes it structurally impossible to get wrong.",
-      target: function () { return document.getElementById("dagNodeCalcGen"); },
+      label: "6 / 17, stage 2 of 3: calculate",
+      title: "Calculate: the money, once, in code",
+      body: "calculate_ask.py runs the ask formula once, in a fixed order, the same way every time, with a full trace attached to every donor. A prompt asking a model to do arithmetic is still just asking; there is no version of a language model that guarantees the same input produces the same output twice. Running the math in code instead makes a wrong calculation structurally impossible, not just unlikely.",
+      target: function () { return document.getElementById("dagNodeCalculate"); },
       refHref: "https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0003-deterministic-arithmetic.md",
       refText: "ADR 0003: deterministic arithmetic",
     },
     {
-      label: "7 / 16, the human gate",
+      label: "7 / 17, stage 3 of 3: generate",
+      title: "Generate: a letter is checked before it exists",
+      body: "generate_letters.py assembles the letter as structured data first, a donor name, a tier, an ask amount, a closing, and checks that structure against a schema before any HTML is ever written. An unconfirmed matching claim or an invented fact cannot reach a donor here, not because the model was told not to write one, but because there is no field in the checked structure for it to go in.",
+      target: function () { return document.getElementById("dagNodeGenerate"); },
+      refHref: "https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0017-letter-schema-validation.md",
+      refText: "ADR 0017: letter schema validation",
+    },
+    {
+      label: "8 / 17, the human gate",
       title: "The system admits what it does not know",
       body: "Below ninety percent confidence, a person reviews before anything goes out. Below seventy, the system stops and asks for help instead of guessing. Every Platinum donor is reviewed regardless of score. That is a harness admitting uncertainty instead of hiding it, at exactly the scale where a hidden mistake would otherwise reach a real donor.",
       target: function () { return document.getElementById("dagNodeGate"); },
@@ -2818,19 +2825,19 @@ __CAMPAIGN_CONFIG_JSON__
       refText: "ADR 0011: the confidence rubric",
     },
     {
-      label: "8 / 16, the scripts",
+      label: "9 / 17, the scripts",
       title: "The actual scripts, not a description of them",
       body: "Every stage above is a real, short Python file on GitHub, not a summary of one. validate_input.py, calculate_ask.py, generate_letters.py, and the shared policy module donor_rules.py that all three of them import from, one implementation of tier, date, and ask logic, used everywhere it matters.",
       target: function () { return document.getElementById("scriptRefsPanel"); },
     },
     {
-      label: "9 / 16, the harness",
+      label: "10 / 17, the harness",
       title: "Five layers, one job each",
       body: "Schema validation twice, once on the raw row and once on the assembled letter. Deterministic arithmetic. A confidence rubric that escalates instead of hiding. Mandatory human gates on the highest-stakes records. One bounded exception where a model may touch phrasing, never a fact or a number. That is the whole harness: bounded probability where a guarantee is not possible, a guarantee everywhere it is.",
       target: function () { return document.getElementById("harnessList"); },
     },
     {
-      label: "10 / 16, deliberate restraint",
+      label: "11 / 17, deliberate restraint",
       title: "What this system chose not to build",
       body: "No orchestration framework, no vector database, no machine learning, because a three-stage pipeline for fifty donors does not need any of them yet. Each one has a written trigger, the specific condition that would justify adding it. Restraint is a decision here, documented, not an oversight.",
       target: function () { return document.getElementById("restraintList"); },
@@ -2838,14 +2845,14 @@ __CAMPAIGN_CONFIG_JSON__
       refText: "The full restraint table, with every deferred component",
     },
     {
-      label: "11 / 16, live: find the errors",
+      label: "12 / 17, live: find the errors",
       title: "What a caught error actually looks like",
       body: "This is the table, filtered to exactly what needs correction right now: four donors, including Shirley Magnusdottir, filed Silver, computing to Gold from her own gift history. This is not a mockup. This is the real embedded dataset, filtered live, the same way you would filter it on your own file.",
       target: function () { return document.getElementById("donorTable"); },
       action: function () { document.getElementById("statusFilter").value = "crit"; },
     },
     {
-      label: "12 / 16, live: apply the fix",
+      label: "13 / 17, live: apply the fix",
       title: "One click, watch it happen",
       body: "This is the same button you would click on a real file. Watch Shirley Magnusdottir's stated tier flip from Silver to Gold, live, right now, not narrated after the fact. The suggested value comes from the same recomputed gift history the validator already checked; a person is still the one clicking approve.",
       target: function () { return findDonorRow("Shirley Magnusdottir"); },
@@ -2855,7 +2862,7 @@ __CAMPAIGN_CONFIG_JSON__
       },
     },
     {
-      label: "13 / 16, live: sign off",
+      label: "14 / 17, live: sign off",
       title: "A person still has to look",
       body: "Correcting the data does not skip review. Every Platinum donor, and anyone a warning still flags, needs a person to check them off before this batch can be considered handled. On a real file you would do this one row at a time as you actually review each one; this button exists for exactly the moment you have already decided they are all clear.",
       target: function () { return document.getElementById("reviewProgressToolbar"); },
@@ -2866,7 +2873,7 @@ __CAMPAIGN_CONFIG_JSON__
       },
     },
     {
-      label: "14 / 16, live: export the package",
+      label: "15 / 17, live: export the package",
       title: "Everything Doug needs, in one file",
       body: "The gate is open now. This button packages the cleaned data, every generated letter, a manifest, and a snapshot of this exact reviewed state into one dated ZIP. The tour will not click it for you, a file downloading itself without being asked is a bad habit for any tool to have, but it is live and ready right now if you want to see it yourself.",
       target: function () { return document.getElementById("archiveToolbar"); },
@@ -2877,7 +2884,7 @@ __CAMPAIGN_CONFIG_JSON__
       },
     },
     {
-      label: "15 / 16, bring your own data",
+      label: "16 / 17, bring your own data",
       title: "How to run a different file through this",
       body: "Everything above ran on the case study's own fifty donors. Upload a different file in the same shape here, and the exact same checks run against it: tiers and lapsed status recomputed, mismatches held for correction, nothing trusted on faith. Growing an existing list works the same way, merge a second file in without losing review state on any donor whose data did not actually change.",
       target: function () { return document.getElementById("advancedTools"); },
@@ -2890,7 +2897,7 @@ __CAMPAIGN_CONFIG_JSON__
       },
     },
     {
-      label: "16 / 16, the whole difference",
+      label: "17 / 17, the whole difference",
       title: "The whole difference, in one line",
       body: "A well designed prompt improves probability. A well designed harness replaces probability with a guarantee, wherever a guarantee is possible, and asks a human wherever it is not. Same model. Completely different system, at any scale you actually need to run it at.",
       target: function () { return document.getElementById("whyGrid"); },

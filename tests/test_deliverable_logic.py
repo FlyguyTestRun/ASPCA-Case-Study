@@ -194,20 +194,20 @@ def run_tour_metadata_in_node(html: str) -> dict:
         + "paceWordsPerSec: PACE_WORDS_PER_SEC,"
         + "targetsResolved: TOUR_STEPS.map(function(s){ return !!s.target(); }),"
         + "};\n"
-        + "replayActionsThrough(10);\n"
+        + "replayActionsThrough(11);\n"
         + "summary.filterAfterFindErrorsStep = document.getElementById('statusFilter').value;\n"
         + "summary.critCountAfterFindErrorsStep = donors.filter(function(d){"
         + "  return deriveState(d).flagLevel === 'crit'; }).length;\n"
-        + "replayActionsThrough(11);\n"
+        + "replayActionsThrough(12);\n"
         + "var shirley = donors.find(function(d){ return d.donor_name === 'Shirley Magnusdottir'; });\n"
         + "summary.shirleyStatedTierAfterApplyFixStep = shirley ? shirley.stated_tier : null;\n"
-        + "replayActionsThrough(12);\n"
+        + "replayActionsThrough(13);\n"
         + "var mandatoryAfterSignoff = donors.filter(function(d){"
         + "  return deriveReview(d, deriveState(d)).level === 'mandatory'; });\n"
         + "summary.mandatoryCountAfterSignoffStep = mandatoryAfterSignoff.length;\n"
         + "summary.allReviewedAfterSignoffStep = mandatoryAfterSignoff.length > 0 &&"
         + "  mandatoryAfterSignoff.every(function(d){ return d.reviewed; });\n"
-        + "replayActionsThrough(14);\n"
+        + "replayActionsThrough(15);\n"
         + "summary.advancedToolsOpenAfterUploadStep = !!document.getElementById('advancedTools').open;\n"
         + "console.log(JSON.stringify(summary));\n"
     )
@@ -937,34 +937,38 @@ class TestOriginalVsRewriteComparisonStaysAccurate:
 
 
 class TestGuidedWalkthrough:
-    """The walkthrough (ADR 0044) is a sixteen-step, live-action tour: no
+    """The walkthrough (ADR 0044) is a seventeen-step, live-action tour: no
     embedded audio and no time budget, since it now performs real
     operations on the real data as it plays rather than narrating a fixed
-    script. These tests read the real TOUR_STEPS array out of the built
-    page and, critically, exercise the actual replayActionsThrough()
-    function the page itself uses, so "the tour actually does what it
-    says it does" is an enforced property of the file, not a claim in a
-    caption."""
+    script. Each of the three pipeline stages (validate, calculate,
+    generate) gets its own step and its own spotlight target, rather than
+    calculate and generate sharing one combined bridge target, so each
+    stage can be explained individually. These tests read the real
+    TOUR_STEPS array out of the built page and, critically, exercise the
+    actual replayActionsThrough() function the page itself uses, so "the
+    tour actually does what it says it does" is an enforced property of
+    the file, not a claim in a caption."""
 
-    def test_sixteen_steps_in_order(self, tour_metadata):
-        assert tour_metadata["stepCount"] == 16
+    def test_seventeen_steps_in_order(self, tour_metadata):
+        assert tour_metadata["stepCount"] == 17
         assert tour_metadata["labels"] == [
-            "1 / 16, the result",
-            "2 / 16, the original problem",
-            "3 / 16, one real example",
-            "4 / 16, the orchestrator",
-            "5 / 16, stage one",
-            "6 / 16, stages two and three",
-            "7 / 16, the human gate",
-            "8 / 16, the scripts",
-            "9 / 16, the harness",
-            "10 / 16, deliberate restraint",
-            "11 / 16, live: find the errors",
-            "12 / 16, live: apply the fix",
-            "13 / 16, live: sign off",
-            "14 / 16, live: export the package",
-            "15 / 16, bring your own data",
-            "16 / 16, the whole difference",
+            "1 / 17, the result",
+            "2 / 17, the original problem",
+            "3 / 17, one real example",
+            "4 / 17, the orchestrator",
+            "5 / 17, stage 1 of 3: validate",
+            "6 / 17, stage 2 of 3: calculate",
+            "7 / 17, stage 3 of 3: generate",
+            "8 / 17, the human gate",
+            "9 / 17, the scripts",
+            "10 / 17, the harness",
+            "11 / 17, deliberate restraint",
+            "12 / 17, live: find the errors",
+            "13 / 17, live: apply the fix",
+            "14 / 17, live: sign off",
+            "15 / 17, live: export the package",
+            "16 / 17, bring your own data",
+            "17 / 17, the whole difference",
         ]
 
     def test_every_step_has_meaningful_narration(self, tour_metadata):
@@ -974,12 +978,12 @@ class TestGuidedWalkthrough:
 
     def test_most_step_targets_resolve_on_a_real_page(self, tour_metadata):
         """All targets except the live-search step resolve here: this stub's
-        querySelectorAll cannot simulate a rendered table row, so step 12
+        querySelectorAll cannot simulate a rendered table row, so step 13
         (donor row lookup by name) is exercised separately by manual
         browser testing, not by this headless check."""
         resolved = tour_metadata["targetsResolved"]
         for index, ok in enumerate(resolved):
-            if index == 11:
+            if index == 12:
                 continue
             assert ok, f"tour step {index + 1} target did not resolve"
 
