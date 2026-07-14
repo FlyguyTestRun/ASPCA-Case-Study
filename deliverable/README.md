@@ -60,8 +60,9 @@ by anyone regardless of their technical setup.
   ask both ways from the same raw record: the original skill's own literal
   steps against the rewrite's, a real dollar-figure difference, not an
   assertion.
-- An architecture section explains what changed in `SKILL.md` (181 to 141
-  lines, every command byte-identical) and why a harness of deterministic
+- An architecture section explains what changed in `SKILL.md` (the rewrite
+  itself had grown to 181 lines before a later documentation-only pass cut
+  it to 141, every command byte-identical) and why a harness of deterministic
   checks surrounds the model at all: a prompt only ever raises the odds a
   model behaves correctly, and the checks convert bounded parts of that
   probability into a guarantee, each one linked to its decision record. A

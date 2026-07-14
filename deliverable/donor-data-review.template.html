@@ -519,12 +519,26 @@
 
   .table-scroll {
     overflow-x: auto;
+    /* Setting overflow-x alone makes the browser compute overflow-y as
+       "auto" too (CSS Overflow spec), which silently made the sticky
+       header below a no-op: with no height limit the container always
+       exactly fits its content, so there was never any internal scroll
+       range for the header to stick within. An explicit max-height gives
+       it one, so the sticky header (and the sort-by-column headers) stay
+       visible while scrolling a long table, without depending on the
+       whole page's scroll position. */
+    max-height: 70vh;
+    overflow-y: auto;
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: var(--paper-raised);
   }
   table { border-collapse: collapse; width: 100%; min-width: 980px; }
   thead th {
+    /* Sticks relative to .table-scroll's own scrollport (its max-height
+       plus overflow-y:auto make it a real scroll container), not the page
+       viewport, so this never needs to account for the sticky process nav
+       above it: the two never occupy the same coordinate space. */
     position: sticky; top: 0;
     background: var(--paper-raised);
     text-align: left;
@@ -535,7 +549,22 @@
     padding: 0.6rem 0.75rem;
     border-bottom: 1px solid var(--line);
     white-space: nowrap;
+    z-index: 10;
   }
+  thead th.sortable {
+    cursor: pointer;
+    user-select: none;
+  }
+  thead th.sortable:hover { color: var(--ink); }
+  thead th.sortable::after {
+    content: "";
+    display: inline-block;
+    width: 0.7em;
+    margin-left: 0.25em;
+    opacity: 0.4;
+  }
+  thead th.sortable[aria-sort="ascending"]::after { content: "\25B2"; opacity: 1; color: var(--accent); }
+  thead th.sortable[aria-sort="descending"]::after { content: "\25BC"; opacity: 1; color: var(--accent); }
   tbody td {
     padding: 0.55rem 0.75rem;
     border-bottom: 1px solid var(--line);
@@ -838,7 +867,7 @@
     <div class="brief-grid">
       <div class="brief-card">
         <h3>1. Improvements and their impact</h3>
-        <p>Ten defects in the original, each with what it would have done in production and the fix that closes it, are in the <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/assessment/ASSESSMENT.md">written assessment</a> and the <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/trap-registry.md">trap registry</a>. The next section below shows the clearest one on one real donor: a tier the file states, checked against the money that is supposed to justify it.</p>
+        <p>Every defect in the original, what it would have done in production, and the fix that closes it: grouped into ten themes in the <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/assessment/ASSESSMENT.md">written assessment</a>, itemized individually (thirteen, several sharing one theme) in the <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/trap-registry.md">trap registry</a>. The next section below shows the clearest one on one real donor: a tier the file states, checked against the money that is supposed to justify it.</p>
       </div>
       <div class="brief-card">
         <h3>2. The rewrite</h3>
@@ -857,8 +886,13 @@
       <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/skill/charity-donor-outreach/SKILL.md">SKILL.md</a> is the
       file an AI assistant reads to trigger this skill, not a design
       document; every line in it costs context at the exact moment that
-      matters most. It went from 181 lines to 141. Every command is
-      unchanged, byte for byte, confirmed by diff. What was cut was
+      matters most. This is a separate pass from the rewrite itself: by the
+      time this trim happened, the rewritten skill file (the original is
+      173 lines) had grown to 181 as pipeline detail, decision links, and
+      rationale accumulated across the project; this pass brought that
+      181-line file down to 141 by cutting the rationale, not the
+      structure. Every command is unchanged, byte for byte, confirmed
+      by diff. What was cut was
       rationale, paragraphs explaining why a decision was made, collapsed to
       one line pointing at the ADR that explains it in full. What stayed:
       the pipeline table, every workflow step's exact command, the
@@ -1186,22 +1220,22 @@
     <div class="table-scroll">
       <table id="donorTable">
         <thead>
-          <tr>
+          <tr id="tableHeaderRow">
             <th></th>
-            <th>Donor</th>
-            <th>Region</th>
-            <th>Stated tier</th>
-            <th>Computed tier</th>
-            <th>Status</th>
-            <th>Largest gift</th>
-            <th>Lifetime</th>
-            <th>Last gift yr</th>
-            <th>Ask</th>
-            <th>Confidence</th>
-            <th>Review</th>
-            <th>Flag</th>
+            <th class="sortable" data-sort="donor_name">Donor</th>
+            <th class="sortable" data-sort="region">Region</th>
+            <th class="sortable" data-sort="stated_tier">Stated tier</th>
+            <th class="sortable" data-sort="computed_tier">Computed tier</th>
+            <th class="sortable" data-sort="status">Status</th>
+            <th class="sortable" data-sort="largest_gift">Largest gift</th>
+            <th class="sortable" data-sort="lifetime_total">Lifetime</th>
+            <th class="sortable" data-sort="last_gift_year">Last gift yr</th>
+            <th class="sortable" data-sort="ask_amount">Ask</th>
+            <th class="sortable" data-sort="confidence">Confidence</th>
+            <th class="sortable" data-sort="review">Review</th>
+            <th class="sortable" data-sort="flag">Flag</th>
             <th>Merge</th>
-            <th>Reviewed</th>
+            <th class="sortable" data-sort="reviewed">Reviewed</th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -1560,19 +1594,64 @@ __CAMPAIGN_CONFIG_JSON__
       '<div class="detail-no-letter">No letter generated: ' + escapeHtml(noLetterText) + "</div>";
   }
 
+  var sortState = { field: null, direction: 1 };
+
+  function sortValue(row, state, review, field) {
+    switch (field) {
+      case "donor_name": return (row.donor_name || "").toLowerCase();
+      case "region": return (row.region || "").toLowerCase();
+      case "stated_tier": return (row.stated_tier || "").toLowerCase();
+      case "computed_tier": return (state.computedTier || "").toLowerCase();
+      case "status": return state.lapsed ? 1 : 0;
+      case "largest_gift": return row.largest_gift || 0;
+      case "lifetime_total": return row.lifetime_total || 0;
+      case "last_gift_year": return row.last_gift_year || 0;
+      case "ask_amount": return row.ask_amount || -1;
+      case "confidence": return parseFloat(row.original_confidence) || -1;
+      case "review": return review.level;
+      case "flag": return state.flagLevel;
+      case "reviewed": return row.reviewed ? 1 : 0;
+      default: return 0;
+    }
+  }
+
+  function updateSortHeaders() {
+    Array.prototype.forEach.call(document.querySelectorAll("#tableHeaderRow th.sortable"), function (th) {
+      if (th.dataset.sort !== sortState.field) { th.removeAttribute("aria-sort"); return; }
+      th.setAttribute("aria-sort", sortState.direction === 1 ? "ascending" : "descending");
+    });
+  }
+
   function renderRows() {
     var query = document.getElementById("search").value.trim().toLowerCase();
     var filter = document.getElementById("statusFilter").value;
     tbody.innerHTML = "";
     var shown = 0;
 
+    var visible = [];
     donors.forEach(function (row) {
       if (query && row.donor_name.toLowerCase().indexOf(query) === -1) return;
       var state = deriveState(row);
       if (filter !== "all" && state.flagLevel !== filter) return;
+      var review = deriveReview(row, state);
+      visible.push({ row: row, state: state, review: review });
+    });
+
+    if (sortState.field) {
+      visible.sort(function (a, b) {
+        var av = sortValue(a.row, a.state, a.review, sortState.field);
+        var bv = sortValue(b.row, b.state, b.review, sortState.field);
+        if (av < bv) return -1 * sortState.direction;
+        if (av > bv) return 1 * sortState.direction;
+        return 0;
+      });
+    }
+    updateSortHeaders();
+
+    visible.forEach(function (item) {
+      var row = item.row, state = item.state, review = item.review;
       shown++;
 
-      var review = deriveReview(row, state);
       var tr = document.createElement("tr");
       if (row.edited) tr.className = "is-edited";
       tr.innerHTML =
@@ -1682,6 +1761,19 @@ __CAMPAIGN_CONFIG_JSON__
 
   document.getElementById("search").addEventListener("input", renderRows);
   document.getElementById("statusFilter").addEventListener("change", renderRows);
+
+  document.getElementById("tableHeaderRow").addEventListener("click", function (e) {
+    var th = e.target.closest("th.sortable");
+    if (!th) return;
+    var field = th.dataset.sort;
+    if (sortState.field === field) {
+      sortState.direction = sortState.direction === 1 ? -1 : 1;
+    } else {
+      sortState.field = field;
+      sortState.direction = 1;
+    }
+    renderRows();
+  });
 
   document.getElementById("resetBtn").addEventListener("click", function () {
     donors = buildDonorsFromRecords(RAW);
@@ -2576,17 +2668,40 @@ __CAMPAIGN_CONFIG_JSON__
   // suggested corrections were easy to miss on this page.
   function jumpToStep(step) {
     var target = null;
+    var filterBox = document.getElementById("statusFilter");
     if (step === "1") {
+      filterBox.value = "all";
+      renderRows();
       target = document.querySelector("#data h2");
     } else if (step === "2") {
-      document.getElementById("statusFilter").value = "crit";
-      renderRows();
+      var critCount = donors.filter(function (row) { return deriveState(row).flagLevel === "crit"; }).length;
+      if (critCount > 0) {
+        filterBox.value = "crit";
+        renderRows();
+        setCleanStatus("");
+      } else {
+        // The filter this step sets only makes sense while records are
+        // actually held; leaving it applied after corrections clear the
+        // batch to zero produced a bare "no donors match" dead end with no
+        // explanation, exactly the kind of silent failure this project
+        // exists to catch everywhere else. Falling back to "all" plus a
+        // status line makes the empty state legible instead of confusing.
+        filterBox.value = "all";
+        renderRows();
+        setCleanStatus("No records currently need correction: every mismatch in this batch has already been fixed or was never held.");
+      }
       target = document.getElementById("donorTable");
     } else if (step === "3") {
+      filterBox.value = "all";
+      renderRows();
       target = document.getElementById("cleanToolbar");
     } else if (step === "4") {
+      filterBox.value = "all";
+      renderRows();
       target = document.getElementById("reviewProgress");
     } else if (step === "5") {
+      filterBox.value = "all";
+      renderRows();
       target = document.getElementById("archiveToolbar");
     }
     if (target) {
@@ -2784,6 +2899,19 @@ __CAMPAIGN_CONFIG_JSON__
   }
 
   function startTour() {
+    // The tour narrates a specific claim about a specific donor (Shirley
+    // Magnusdottir: filed Silver, computes to Gold). If a visitor already
+    // clicked "Apply suggested corrections" or restored a saved dataset
+    // before starting the tour, her row would already show Gold/Gold,
+    // directly contradicting the narration the moment it spotlights her.
+    // Resetting to the canonical, uncorrected dataset here, the same reset
+    // resetBtn performs, guarantees the tour always demonstrates against
+    // the state its own script was written for, regardless of what a
+    // visitor did first.
+    donors = buildDonorsFromRecords(RAW);
+    renderStats();
+    renderRows();
+
     tourState.active = true;
     document.body.classList.add("tour-active");
     captionEl.classList.add("active");

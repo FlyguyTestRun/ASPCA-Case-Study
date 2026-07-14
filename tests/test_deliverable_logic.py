@@ -63,7 +63,7 @@ _STUB = """
     function makeStubElement() {
       var _textContent = "", _innerHTML = "";
       var el = {
-        style: {},
+        style: { setProperty: function(){}, getPropertyValue: function(){ return ""; }, removeProperty: function(){} },
         classList: { add: function(){}, remove: function(){}, contains: function(){return false;}, toggle: function(){} },
         dataset: {},
         children: [],

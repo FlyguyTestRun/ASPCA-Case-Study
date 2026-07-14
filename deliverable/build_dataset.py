@@ -42,10 +42,18 @@ def main():
     letters_outdir = WORKDIR / "out"
     run("validate_input.py", "--input", str(FIXTURE))
     run("calculate_ask.py")
+    # letter_date defaults to the day the script runs (ADR 0031), correct
+    # for a real campaign but wrong for this fixed demo: every rebuild would
+    # otherwise print a later real-world date next to giving data and an
+    # "emergency appeal" frozen at as_of_date, and that gap only grows with
+    # time. Pinning --letter-date to the same as_of_date makes this batch
+    # read as what it actually is: one internally consistent snapshot, not
+    # a moving generation date layered on frozen data. See ADR 0031.
+    as_of_date = json.loads(CONFIG.read_text(encoding="utf-8"))["as_of_date"]
     # Regenerated fresh from this same run, into a scratch outdir, never the
     # committed output/: the embedded letters must always match exactly what
     # this script just computed, not a possibly older separate evidence run.
-    run("generate_letters.py", "--outdir", str(letters_outdir))
+    run("generate_letters.py", "--outdir", str(letters_outdir), "--letter-date", as_of_date)
 
     computed = {row["donor_name"]: row for row in read_csv(WORKDIR / "computed.csv")}
     exceptions = {row["donor_name"]: row for row in read_csv(WORKDIR / "exceptions.csv")}
