@@ -1,11 +1,22 @@
-﻿# Charity Donor Outreach, Rebuilt
+# Charity Donor Outreach, Rebuilt
 
 A case study in turning a plausible-looking AI prompt into a governed, testable system.
 
-The brief: a nonprofit technology consultant drafted an AI agent skill, [charity-donor-outreach](original/charity-donor-outreach/SKILL.md), to help ASPCA fundraising staff generate personalized donor letters at scale. The task was to assess it, describe improvements and their impact, and rewrite it. The one-sentence diagnosis: the original is a prompt wearing a skill's file format. It asked a language model to be a database, a calculator, a compliance officer, and a mail room at once, and it trusted every byte of input on faith. The rebuild gives each job to the right tool, verifies everything it can compute, gates everything it cannot, and puts a human in front of anything that matters. The full reasoning behind that diagnosis, problem by problem, is in the [design review](docs/design-review/README.md).
+The brief: a nonprofit technology consultant drafted an AI agent skill, [charity-donor-outreach](original/charity-donor-outreach/SKILL.md), to help ASPCA fundraising staff generate personalized donor letters at scale. The task was to assess it, describe improvements and their impact, and rewrite it. The short diagnosis: the original skill asks a language model to be the database, calculator, compliance reviewer, copywriter, and delivery channel at once. The rebuild keeps those jobs separate: code verifies the data and computes the rules, the model is optional and bounded, and a person reviews anything consequential before it leaves the system. The full reasoning behind that diagnosis, problem by problem, is in the [design review](docs/design-review/README.md).
+
+## Review path
+
+If you read only three things, read these in order:
+
+1. **[Assessment](assessment/ASSESSMENT.md):** the direct answer to the two case-study questions.
+2. **[Rewritten skill](skill/charity-donor-outreach/SKILL.md):** the concise operational version an agent would follow.
+3. **[Standalone HTML review artifact](deliverable/donor-data-review.html):** the interactive deliverable for reviewing the supplied data, applying corrections, and exporting a cleaned batch.
+
+The rest of the repository is implementation evidence: tests, generated output, decision records, and scale notes showing where production extensions would attach without changing the core design.
 
 ## Contents
 
+- [Review path](#review-path)
 - [Results on the case-study data](#results-on-the-case-study-data)
 - [How the pipeline works](#how-the-pipeline-works)
 - [Try it](#try-it)
@@ -83,9 +94,11 @@ Want to see it happen rather than read about it? [`docs/run-walkthrough.md`](doc
 
 ## Try it
 
-Requires Python 3.10 or newer. The pipeline uses only the standard library (`openpyxl` for Excel input); `pandas` and `streamlit` serve the review app, `pytest` the tests.
+Requires Python 3.10 or newer. The core CSV pipeline uses the standard library; `openpyxl` enables Excel input, `pandas` and `streamlit` serve the review app, and `pytest` runs the tests. Install the optional review/test dependencies before running the full suite locally.
 
 ```bash
+python -m pip install openpyxl pandas streamlit pytest
+
 # The three stages, against the sample data (catches all four planted traps)
 python skill/charity-donor-outreach/scripts/validate_input.py \
   --input skill/charity-donor-outreach/assets/sample_donors.csv \
@@ -114,7 +127,7 @@ A completed run is committed in [output/](output/) as evidence: the [review mani
 
 **Live, no download:** https://flyguytestrun.github.io/ASPCA-Case-Study/deliverable/donor-data-review.html
 
-Or, [deliverable/donor-data-review.html](deliverable/donor-data-review.html) opens in any browser, no install, no server, no network. It leads with a guided, under-two-minute narrated walkthrough, then states the verified result, diagrams the pipeline (each stage naming its actual script and where its output lands), and lists all 50 donors in a searchable, editable table: correct a flagged field and the same tier and date logic the Python validator runs re-checks it instantly, in the browser, alongside the same review conditions (mandatory, recommended, routed to personal outreach) the pipeline enforces downstream. It also accepts an upload of the case study's own unedited file, or any file in the same shape, applies suggested corrections at a click, keeps the cleaned result in the browser across a reload, and exports a cleaned file in exactly the shape the pipeline reads next. Expanding a donor's row shows the real generated letter alongside the ask trace, rendered from the same pipeline run, not synthesized in the browser. Every mandatory-review donor gets a "Reviewed" checkbox; a "Download dated archive" button stays locked until all of them are checked off, then packages the cleaned data, every letter, and a manifest into one timestamped ZIP, built by a small dependency-free ZIP writer since the file has to stay self-contained. The embedded dataset is built from the real pipeline, never hand-typed, and the page's validation, upload, correction, review-gate, and archive logic are all pinned against the Python output by [tests/test_deliverable_logic.py](tests/test_deliverable_logic.py). Details and rebuild instructions: [deliverable/README.md](deliverable/README.md); design records: [ADR 0021](docs/adr/0021-standalone-review-artifact.md), [ADR 0029](docs/adr/0029-browser-side-upload-clean-and-persist.md), [ADR 0030](docs/adr/0030-letter-preview-and-date-display.md), [ADR 0035](docs/adr/0035-html-review-gate-and-dated-archive.md).
+Or, [deliverable/donor-data-review.html](deliverable/donor-data-review.html) opens in any browser, no install, no server, no network. It is the reviewer-facing version of the case study: it shows the verified result, explains the pipeline, lets a reviewer inspect all 50 donors, apply suggested corrections, upload another file in the same shape, and export a cleaned batch for the next pipeline run. Expanding a donor row shows the generated letter and ask trace from the real pipeline output, not browser-synthesized content. Mandatory-review donors must be checked off before the page will download a dated archive containing the cleaned data, letters, and manifest. Details and rebuild instructions: [deliverable/README.md](deliverable/README.md); design records: [ADR 0021](docs/adr/0021-standalone-review-artifact.md), [ADR 0029](docs/adr/0029-browser-side-upload-clean-and-persist.md), [ADR 0030](docs/adr/0030-letter-preview-and-date-display.md), [ADR 0035](docs/adr/0035-html-review-gate-and-dated-archive.md).
 
 ## Requirements checklist
 
@@ -134,7 +147,7 @@ Or, [deliverable/donor-data-review.html](deliverable/donor-data-review.html) ope
 | [Trap registry](docs/trap-registry.md) | Every planted defect: where it hides, how it is caught, the test that proves it |
 | [Scale architecture](docs/scale-architecture.md) | What gets built when volume demands it, and the trigger for each addition |
 | [Rewritten skill](skill/charity-donor-outreach/SKILL.md) | The lean instruction file: judgment only, no math, no guessing, nothing sent |
-| [Standalone review artifact](deliverable/donor-data-review.html) | Open in any browser: verified results, the pipeline diagram, and an editable, exportable view of all 50 donors |
+| [Standalone review artifact](deliverable/donor-data-review.html) | Open in any browser: the interactive HTML deliverable for reviewing, correcting, uploading, and exporting donor data |
 | [Hours log](HOURS.md) | Time spent on this engagement, block by block |
 
 ## Design principles

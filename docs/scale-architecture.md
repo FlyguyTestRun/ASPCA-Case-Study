@@ -1,6 +1,6 @@
 # Scale Architecture: What Gets Built, and What Triggers It
 
-This system is deliberately small. At 50 donors, the correct architecture is a deterministic pipeline, a schema, a review gate, and a folder of files, and every component beyond that would be bloat wearing a best-practice costume. Knowing when not to use an LLM extends to knowing when not to use infrastructure.
+This system is deliberately small. At 50 donors, the correct architecture is a deterministic pipeline, a schema, a review gate, and a folder of files, and every component beyond that would be unnecessary complexity. Knowing when not to use an LLM extends to knowing when not to use infrastructure.
 
 But small on purpose is different from small by ignorance. Each component below is deliberately absent, with the specific condition that would justify building it. This is the build order I would defend in an architecture review.
 
