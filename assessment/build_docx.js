@@ -107,7 +107,7 @@ const doc = new Document({
           "The fix is one principle applied consistently: verify the data first, then let each tool do the job it is actually good at. Deterministic code owns validation, tier computation, ask arithmetic, and rendering. The model contributes only bounded, optional personalization, grounded in verified fields, off by default. Humans review by exception, with mandatory gates where the stakes are highest."
         ),
         body(
-          "Run against the case study's own 50 donors: the pipeline catches four mislabeled tiers (one my own manual review of the table had missed), flags a reference-date trap, routes two lapsed major donors away from form letters, and generates 44 letters with a full audit trail. Nothing is ever sent automatically. 157 automated tests hold this behavior in place, re-run on every change by CI."
+          "Run against the case study's own 50 donors: the pipeline catches four mislabeled tiers (one my own manual review of the table had missed), flags a reference-date trap, routes two lapsed major donors away from form letters, and generates 44 letters with a full audit trail. Nothing is ever sent automatically. 160 automated tests hold this behavior in place, re-run on every change by CI."
         ),
 
         h2("Part 1: Improvements and Their Impact"),

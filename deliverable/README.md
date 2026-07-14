@@ -7,11 +7,14 @@ by anyone regardless of their technical setup.
 
 ## What it does
 
-- Opens with a "Start the two-minute walkthrough" control: a guided,
-  spotlighted tour of six real, live parts of the page, narrated and
-  captioned, answering one question: why a well written prompt only ever
-  improves the odds a model behaves, and what a well designed harness adds
-  on top of that. Built to double as a training artifact, not just a demo.
+- Opens with a "Start the guided walkthrough" control: sixteen steps
+  covering what the original prompt would have done, the architecture that
+  fixes it stage by stage (naming the real script and its decision record
+  at each one), and a live demonstration that actually performs real
+  operations on the real embedded data as it plays, filtering to the
+  flagged rows, applying the suggested correction, checking off review,
+  and opening the export gate, not narration over a static screenshot.
+  Built to double as a training artifact, not just a demo.
 - States the verified result up front: 50 records, how many are clean, held
   for review, or need correction.
 - Shows the pipeline as a diagram, each stage annotated with the specific
@@ -44,6 +47,9 @@ by anyone regardless of their technical setup.
 - Every mandatory-review donor gets a "Reviewed" checkbox, and a "Required
   reviews: X of Y complete" indicator tracks progress across the whole
   file, not just what is currently visible under a search or filter.
+  "Mark all reviewed" and "Clear all" apply to every mandatory-review donor
+  at once, for a reviewer who has already decided they are all clear rather
+  than checking each one individually.
 - "Download dated archive" stays locked until every mandatory-review donor
   is checked off, then packages the cleaned CSV, every generated letter,
   and a manifest (tier, ask, confidence, review level, reviewed status, and
@@ -92,26 +98,27 @@ download to the local machine. Design records: [ADR 0029](../docs/adr/0029-brows
 
 ## The guided walkthrough
 
-Six beats, spotlighting the verified result, each pipeline stage, the
-confidence gate, one of the four real caught errors (Shirley Magnusdottir's
-tier), and the closing thesis. Controls: Prev, Next, Play/Pause, End, arrow
-keys, Escape. Works two ways at once:
+Sixteen steps, in four movements: the original prompt's problems and how
+they threaten Doug's own goals (consistent, reliable, scalable); the
+architecture stage by stage, each one naming its real script and decision
+record; a live demonstration that filters the table to the flagged rows,
+applies the suggested correction, checks off review, and opens the export
+gate, actually performing each action on the real embedded data, not
+narrating past tense over a static screenshot; and how to run a different
+donor file through the same checks. Controls: Prev, Next, Play/Pause, End,
+arrow keys, Escape.
 
-- **With narration.** The audio is embedded as a base64 data URI in the same
-  file, no second file to keep track of. Step timing is not hand-authored:
-  each step gets a share of the total audio duration proportional to its
-  caption's word count, so the tour re-times itself automatically for any
-  narration, placeholder or real, without editing a timestamp table.
-- **Without sound.** The same caption text is always on screen, so a team
-  member reading over someone's shoulder, or presenting on mute, gets the
-  same content a listener would hear.
+No embedded audio. A synthesized voice cannot be made to sound less
+robotic, and captions carry the whole tour on their own; they read fine
+aloud if you want to record narration over a screen capture yourself,
+since the caption text is the same words spoken narration would use.
 
-The script is under two minutes at a natural reading pace, and that budget
-is enforced: `tests/test_deliverable_logic.py` reads the real per-step word
-counts and the real pacing constant out of the built file and fails if the
-walkthrough drifts past two minutes or a step's spotlight target breaks.
-See `app/assets/tutorial_transcript.md` for the script and how to record
-over the placeholder narration.
+Live actions replay from a clean, canonical dataset every time a step
+changes, rather than mutating state incrementally forward. Back, Next, and
+jumping between steps all land on exactly the state a fresh visitor would
+see at that step regardless of navigation direction, and ending the tour at
+any point always returns the page to its clean starting state, never
+mid-demo. Decision record: [ADR 0044](../docs/adr/0044-the-walkthrough-becomes-a-live-demonstration.md).
 
 ## How the data gets in
 

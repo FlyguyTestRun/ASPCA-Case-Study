@@ -78,7 +78,7 @@ _STUB = """
         closest: function(){ return null; },
         setAttribute: function(){}, getAttribute: function(){ return null; }, removeAttribute: function(){},
         focus: function(){}, click: function(){},
-        value: "", className: "",
+        value: "", className: "", open: false,
       };
       // Real elements escape on the textContent -> innerHTML round trip;
       // escapeHtml() in the page relies on exactly that browser behavior,
@@ -97,10 +97,20 @@ _STUB = """
       });
       return el;
     }
+    // Real getElementById returns the same node on every call for the same
+    // id, which the walkthrough's live-action replay depends on: it reads
+    // back a value (or an <details> element's open state) set by an
+    // earlier call in the same replay pass. A version that returned a
+    // fresh throwaway element per call would silently discard every write
+    // the moment the next getElementById call for that same id happened.
+    var _elementsById = {};
     var document = {
       documentElement: makeStubElement(),
       body: makeStubElement(),
-      getElementById: function(){ return makeStubElement(); },
+      getElementById: function(id){
+        if (!_elementsById[id]) _elementsById[id] = makeStubElement();
+        return _elementsById[id];
+      },
       createElement: function(){ return makeStubElement(); },
       addEventListener: function(){},
       removeEventListener: function(){},
@@ -155,11 +165,16 @@ def run_derive_state_in_node(html: str) -> list[dict]:
 
 
 def run_tour_metadata_in_node(html: str) -> dict:
-    """Execute the page's own TOUR_STEPS and pacing constants inside Node,
-    with every step's target() resolved against the full stubbed page, and
-    return a structural summary. This is what pins the walkthrough at under
-    two minutes: it reads the real per-step word counts and the real pacing
-    constant, not a hand-maintained estimate that could drift from the copy."""
+    """Execute the page's own TOUR_STEPS, pacing constant, and live-action
+    replay logic inside Node, with every step's target() resolved against
+    the full stubbed page. No embedded audio and no two-minute budget in
+    this tour (ADR 0044); this instead pins the structural shape (step
+    count, labels, targets) and, since steps now perform real operations
+    on the real data as they play, that replaying through specific steps
+    produces the exact state a live browser would show at that point:
+    the status filter set, the suggested correction actually applied,
+    every mandatory donor actually marked reviewed, the upload panel
+    actually opened."""
     dataset, script_block = extract_dataset_and_script(html)
     inner = re.search(r"\(function \(\) \{(.*)\}\)\(\);", script_block, re.S).group(1)
     inner = inner.replace('"use strict";', "")
@@ -175,11 +190,25 @@ def run_tour_metadata_in_node(html: str) -> dict:
         + "stepCount: TOUR_STEPS.length,"
         + "labels: TOUR_STEPS.map(function(s){ return s.label; }),"
         + "titles: TOUR_STEPS.map(function(s){ return s.title; }),"
-        + "totalWords: totalWords,"
+        + "totalWords: TOUR_STEPS.reduce(function(sum,s){ return sum + wordCount(s.body); }, 0),"
         + "paceWordsPerSec: PACE_WORDS_PER_SEC,"
-        + "estimatedSeconds: totalWords / PACE_WORDS_PER_SEC,"
         + "targetsResolved: TOUR_STEPS.map(function(s){ return !!s.target(); }),"
         + "};\n"
+        + "replayActionsThrough(10);\n"
+        + "summary.filterAfterFindErrorsStep = document.getElementById('statusFilter').value;\n"
+        + "summary.critCountAfterFindErrorsStep = donors.filter(function(d){"
+        + "  return deriveState(d).flagLevel === 'crit'; }).length;\n"
+        + "replayActionsThrough(11);\n"
+        + "var shirley = donors.find(function(d){ return d.donor_name === 'Shirley Magnusdottir'; });\n"
+        + "summary.shirleyStatedTierAfterApplyFixStep = shirley ? shirley.stated_tier : null;\n"
+        + "replayActionsThrough(12);\n"
+        + "var mandatoryAfterSignoff = donors.filter(function(d){"
+        + "  return deriveReview(d, deriveState(d)).level === 'mandatory'; });\n"
+        + "summary.mandatoryCountAfterSignoffStep = mandatoryAfterSignoff.length;\n"
+        + "summary.allReviewedAfterSignoffStep = mandatoryAfterSignoff.length > 0 &&"
+        + "  mandatoryAfterSignoff.every(function(d){ return d.reviewed; });\n"
+        + "replayActionsThrough(14);\n"
+        + "summary.advancedToolsOpenAfterUploadStep = !!document.getElementById('advancedTools').open;\n"
         + "console.log(JSON.stringify(summary));\n"
     )
     with tempfile.TemporaryDirectory() as tmp:
@@ -908,45 +937,70 @@ class TestOriginalVsRewriteComparisonStaysAccurate:
 
 
 class TestGuidedWalkthrough:
-    """The walkthrough is a specific requirement: a spotlighted, captioned
-    tour of the redesign, under two minutes, built from the same word counts
-    a narrator would actually read. These tests read the real TOUR_STEPS
-    array and pacing constant out of the built page, so the two-minute
-    budget is an enforced property of the file, not a claim in a comment."""
+    """The walkthrough (ADR 0044) is a sixteen-step, live-action tour: no
+    embedded audio and no time budget, since it now performs real
+    operations on the real data as it plays rather than narrating a fixed
+    script. These tests read the real TOUR_STEPS array out of the built
+    page and, critically, exercise the actual replayActionsThrough()
+    function the page itself uses, so "the tour actually does what it
+    says it does" is an enforced property of the file, not a claim in a
+    caption."""
 
-    def test_seven_steps_in_order(self, tour_metadata):
-        assert tour_metadata["stepCount"] == 7
+    def test_sixteen_steps_in_order(self, tour_metadata):
+        assert tour_metadata["stepCount"] == 16
         assert tour_metadata["labels"] == [
-            "1 / 7, the result",
-            "2 / 7, checkpoint one",
-            "3 / 7, checkpoints two and three",
-            "4 / 7, the review gate",
-            "5 / 7, built small on purpose",
-            "6 / 7, a real example",
-            "7 / 7, the whole difference",
+            "1 / 16, the result",
+            "2 / 16, the original problem",
+            "3 / 16, one real example",
+            "4 / 16, the orchestrator",
+            "5 / 16, stage one",
+            "6 / 16, stages two and three",
+            "7 / 16, the human gate",
+            "8 / 16, the scripts",
+            "9 / 16, the harness",
+            "10 / 16, deliberate restraint",
+            "11 / 16, live: find the errors",
+            "12 / 16, live: apply the fix",
+            "13 / 16, live: sign off",
+            "14 / 16, live: export the package",
+            "15 / 16, bring your own data",
+            "16 / 16, the whole difference",
         ]
 
-    def test_under_two_minutes_at_the_stated_pace(self, tour_metadata):
-        assert tour_metadata["estimatedSeconds"] < 120, (
-            f"walkthrough estimated at {tour_metadata['estimatedSeconds']:.1f}s "
-            "at the stated reading pace; requirement is under two minutes"
-        )
-
     def test_every_step_has_meaningful_narration(self, tour_metadata):
-        assert tour_metadata["totalWords"] > 100
+        assert tour_metadata["totalWords"] > 300
         for title in tour_metadata["titles"]:
             assert title, "every step needs a title"
 
     def test_most_step_targets_resolve_on_a_real_page(self, tour_metadata):
         """All targets except the live-search step resolve here: this stub's
-        querySelectorAll cannot simulate a rendered table row, so step 6
-        (donor row lookup) is exercised separately by manual browser testing,
-        not by this headless check."""
+        querySelectorAll cannot simulate a rendered table row, so step 12
+        (donor row lookup by name) is exercised separately by manual
+        browser testing, not by this headless check."""
         resolved = tour_metadata["targetsResolved"]
         for index, ok in enumerate(resolved):
-            if index == 5:
+            if index == 11:
                 continue
             assert ok, f"tour step {index + 1} target did not resolve"
+
+    def test_find_errors_step_actually_filters_to_flagged_rows(self, tour_metadata):
+        assert tour_metadata["filterAfterFindErrorsStep"] == "crit"
+        assert tour_metadata["critCountAfterFindErrorsStep"] == 4
+
+    def test_apply_fix_step_actually_corrects_shirleys_tier(self, tour_metadata):
+        """This is the one live-action test that most directly answers
+        "does the tour really do what it says": before this step replays,
+        Shirley Magnusdottir's stated tier is Silver; after, it must be
+        Gold, from the same applySuggestedCorrections() the real button
+        calls, not a scripted narration claiming it happened."""
+        assert tour_metadata["shirleyStatedTierAfterApplyFixStep"] == "Gold"
+
+    def test_signoff_step_actually_marks_every_mandatory_donor_reviewed(self, tour_metadata):
+        assert tour_metadata["mandatoryCountAfterSignoffStep"] == 5
+        assert tour_metadata["allReviewedAfterSignoffStep"] is True
+
+    def test_upload_step_actually_opens_the_advanced_tools_panel(self, tour_metadata):
+        assert tour_metadata["advancedToolsOpenAfterUploadStep"] is True
 
 
 class TestConfidenceScoreIsNotShown:

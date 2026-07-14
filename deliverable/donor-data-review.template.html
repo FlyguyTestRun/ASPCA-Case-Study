@@ -481,6 +481,10 @@
     min-height: 1.2em;
     margin: -0.6rem 0 1rem;
   }
+  .review-progress-toolbar {
+    align-items: center;
+    margin-bottom: 0.25rem;
+  }
   .review-progress {
     display: inline-block;
     font-family: var(--font-mono);
@@ -488,7 +492,7 @@
     font-weight: 600;
     padding: 0.35rem 0.75rem;
     border-radius: var(--radius);
-    margin: 0 0 1rem;
+    margin: 0;
   }
   .review-progress.incomplete { background: var(--warn-soft); color: var(--warn); }
   .review-progress.complete { background: var(--ok-soft); color: var(--ok); }
@@ -804,7 +808,6 @@
 <body>
 
 <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle color theme">Theme</button>
-<audio id="tourAudio" preload="auto" src="__AUDIO_DATA_URI__"></audio>
 
 <header class="masthead">
   <div class="wrap">
@@ -820,9 +823,9 @@
     <div class="masthead-actions">
       <button id="startTourBtn" type="button" class="tour-cta">
         <span class="tour-cta-icon" aria-hidden="true">▶</span>
-        Start the two-minute walkthrough
+        Start the guided walkthrough
       </button>
-      <span class="tour-cta-note">Why a well-designed prompt is not enough, walked through live on this data.</span>
+      <span class="tour-cta-note">Sixteen steps: the original problem, the architecture that fixes it, and a live demonstration catching and correcting a real error, on this data.</span>
     </div>
     <div class="stat-row" id="statRow"></div>
     <p class="action-banner" id="actionBanner" hidden></p>
@@ -926,7 +929,7 @@
       allowed to touch language, converting as much of that probability into
       a guarantee as the problem allows:
     </p>
-    <ul class="compare-steps architecture-list">
+    <ul class="compare-steps architecture-list" id="harnessList">
       <li><strong>Schema validation, twice.</strong> Once on the raw donor row (<code>donor.schema.json</code>) before any business rule runs, once on the assembled letter (<code>letter_schema.json</code>) before any HTML exists. <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0024-donor-schema-validation-layer.md">ADR 0024</a>, <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0017-letter-schema-validation.md">ADR 0017</a>.</li>
       <li><strong>Deterministic arithmetic.</strong> Every tier, every date check, every ask amount is one fixed function, tested, never a model guess. <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0002-verify-inputs-never-trust-them.md">ADR 0002</a>, <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0003-deterministic-arithmetic.md">ADR 0003</a>.</li>
       <li><strong>A confidence rubric that escalates instead of hiding.</strong> Below 0.70 blocked outright, below 0.90 held for a person, and every band emits a structured escalation event, so uncertainty is visible, not swallowed. <a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0011-confidence-scoring-feedback-loop.md">ADR 0011</a>.</li>
@@ -1082,7 +1085,7 @@
       </div>
     </div>
 
-    <div class="script-refs">
+    <div class="script-refs" id="scriptRefsPanel">
       <div class="script-refs-label">The actual scripts, on GitHub, not a description of them</div>
       <ul>
         <li><a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/skill/charity-donor-outreach/scripts/validate_input.py">validate_input.py</a>: Stage 1, writes <code>work/validated.csv</code> and <code>work/exceptions.csv</code></li>
@@ -1157,7 +1160,12 @@
       the same tier and date logic the Python pipeline uses. Nothing here is
       sent anywhere.
     </p>
-    <p class="review-progress" id="reviewProgress" role="status" aria-live="polite">Required reviews: 0 of 0 complete.</p>
+    <div class="toolbar review-progress-toolbar" id="reviewProgressToolbar">
+      <p class="review-progress" id="reviewProgress" role="status" aria-live="polite">Required reviews: 0 of 0 complete.</p>
+      <div class="spacer"></div>
+      <button class="ghost" id="markAllReviewedBtn" type="button">Mark all reviewed</button>
+      <button class="ghost" id="clearAllReviewedBtn" type="button">Clear all</button>
+    </div>
 
     <div class="toolbar primary-toolbar" id="cleanToolbar">
       <button id="applyCorrectionsBtn" type="button">Apply suggested corrections</button>
@@ -1177,7 +1185,7 @@
       <button id="exportBtn" type="button">Download cleaned CSV</button>
     </div>
 
-    <details class="advanced-tools">
+    <details class="advanced-tools" id="advancedTools">
       <summary>Advanced: upload your own file, merge in another list, or manage saved browser state</summary>
 
       <p class="section-note">
@@ -1716,6 +1724,25 @@ __CAMPAIGN_CONFIG_JSON__
     var signoffBadge = document.getElementById("stepBadgeSignoff");
     if (signoffBadge) signoffBadge.textContent = mandatory.length ? done + "/" + mandatory.length : "";
   }
+
+  // Checking off mandatory-review donors one at a time was the only way to
+  // clear the archive gate; with 5 or more on a real list that is a lot of
+  // individual clicks for something a reviewer has already decided to do.
+  // Marks or clears every mandatory-review donor at once; a person still
+  // has to click the button, this only removes the per-row repetition.
+  function setAllMandatoryReviewed(reviewed) {
+    donors.forEach(function (row) {
+      if (deriveReview(row, deriveState(row)).level === "mandatory") row.reviewed = reviewed;
+    });
+    renderRows();
+  }
+
+  document.getElementById("markAllReviewedBtn").addEventListener("click", function () {
+    setAllMandatoryReviewed(true);
+  });
+  document.getElementById("clearAllReviewedBtn").addEventListener("click", function () {
+    setAllMandatoryReviewed(false);
+  });
 
   tbody.addEventListener("click", function (e) {
     var detailBtn = e.target.closest(".row-detail-btn");
@@ -2639,11 +2666,14 @@ __CAMPAIGN_CONFIG_JSON__
   // ============================================================
   // Guided walkthrough
   //
-  // Six beats, spotlighting a real part of the page for each. Reads
-  // naturally as a silent captioned slideshow on its own; if the embedded
-  // narration audio is present, playback drives step timing (each beat gets
-  // a slice of the audio proportional to its caption's word count), and
-  // falls back to a words-per-second estimate if audio cannot play.
+  // Sixteen beats: the original problem, the architecture that fixes it,
+  // then a live demonstration that actually performs real operations on
+  // the real embedded data (filters to the flagged rows, applies the
+  // suggested corrections, checks off review, opens the export gate) as
+  // it plays, not narration over a static screenshot. No embedded audio;
+  // captions carry the whole tour and read fine aloud if you want to
+  // record over it yourself. Step timing is a words-per-second estimate
+  // against each caption.
   // ============================================================
   var PACE_WORDS_PER_SEC = 2.5;
 
@@ -2724,65 +2754,152 @@ __CAMPAIGN_CONFIG_JSON__
     if (e.target && e.target.id === "bannerJumpBtn") jumpToStep("2");
   });
 
+  // No embedded narration: a synthesized voice cannot be made to sound
+  // less robotic, and the fix for that is a human recording, not a
+  // longer script read by the same voice. Captions carry the whole tour;
+  // reading them aloud while it plays works as a recording script too.
+  //
+  // Every step below can carry an optional `action`, a function that
+  // performs a real, live operation on the actual page data (filtering
+  // to the flagged rows, applying corrections, checking off reviews).
+  // showStep() always replays every action from step 0 up to the current
+  // index against a freshly reset dataset before showing a step, rather
+  // than mutating state incrementally forward. That means Back and Next
+  // both land on exactly the state a fresh visitor would see at that
+  // step, regardless of which direction you navigated from, and ending
+  // the tour early never leaves the page in a demo-modified state.
   var TOUR_STEPS = [
     {
-      label: "1 / 7, the result",
+      label: "1 / 16, the result",
       title: "The result",
-      body: "A well written prompt raises the odds a model behaves. It never guarantees it. Fifty donor records ran through this redesigned system. Here is what verified actually looks like, and why the difference matters.",
+      body: "A well written prompt raises the odds a model behaves. It never guarantees it. Fifty donor records ran through this redesigned system. Here is what verified actually looks like, why the difference matters, and by the end of this walkthrough, exactly how to run your own donor file through the same checks.",
       target: function () { return document.getElementById("statRow"); },
     },
     {
-      label: "2 / 7, checkpoint one",
-      title: "Never trust, always verify",
-      body: "Before a model ever sees this data, every donor's tier, total, and date gets recomputed from the source numbers and checked in code. This single stage caught four donors filed under the wrong tier.",
+      label: "2 / 16, the original problem",
+      title: "What the original prompt would have done",
+      body: "The original skill embedded the donor list inside its own instructions, trusted every stated field on faith, and asked a model to do arithmetic. Doug's brief asked for outreach that is consistent, reliable, and scalable. A prompt that trusts unverified data on faith is none of those three: not consistent, because the same donor can get a different answer depending on how the model reads the file that day; not reliable, because a wrong tier means a wrong ask, sent with total confidence; not scalable, because every one of those risks multiplies with every donor added to the list.",
+      target: function () { return document.getElementById("brief"); },
+    },
+    {
+      label: "3 / 16, one real example",
+      title: "The gap, in dollars",
+      body: "Ruth Andersen's file says Silver. Her actual giving computes to Gold. Followed literally, the original skill's own steps ask her for fifteen hundred and six dollars. This system recomputes her tier from her real gift history, catches the mismatch, and asks for twenty-four fifty. Nine hundred and forty-four dollars, from one label nobody checked against the money it was supposed to describe.",
+      target: function () { return document.getElementById("comparison"); },
+    },
+    {
+      label: "4 / 16, the orchestrator",
+      title: "SKILL.md: the file that runs this, not explains it",
+      body: "SKILL.md is what an AI assistant actually reads to trigger this system. It holds the required inputs, the exact command for every stage, and five hard rules, nothing else. The reasoning behind each of those lives in decision records, one link away, not inline, because every line in this file costs context at the exact moment an agent is deciding what to do next.",
+      target: function () { return document.getElementById("architecture"); },
+    },
+    {
+      label: "5 / 16, stage one",
+      title: "Stage 1: validate, never trust",
+      body: "validate_input.py is the first thing that touches a donor file, before a model ever sees it. It recomputes every tier, total, and date from the source numbers and checks the stated value against what it actually computes. This single stage is what caught the four mislabeled tiers in this file, including one my own manual read of the table had missed on the first pass.",
       target: function () { return document.getElementById("dagNodeValidate"); },
       refHref: "https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0002-verify-inputs-never-trust-them.md",
       refText: "ADR 0002: verify inputs, never trust them",
     },
     {
-      label: "3 / 7, checkpoints two and three",
+      label: "6 / 16, stages two and three",
       title: "Money and language, not guesses",
-      body: "Arithmetic runs once, in code, the same way every time. Every letter is checked against a schema before it becomes a letter. A prompt asking a model to calculate or promise something is still just asking. This makes it structurally impossible to get wrong.",
+      body: "calculate_ask.py runs the ask formula once, in code, the same fixed order every time, with a full trace. generate_letters.py then assembles the letter and checks it against a schema before any HTML exists. A prompt asking a model to calculate or promise something is still just asking; running it in code instead makes it structurally impossible to get wrong.",
       target: function () { return document.getElementById("dagNodeCalcGen"); },
       refHref: "https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0003-deterministic-arithmetic.md",
       refText: "ADR 0003: deterministic arithmetic",
     },
     {
-      label: "4 / 7, the review gate",
+      label: "7 / 16, the human gate",
       title: "The system admits what it does not know",
-      body: "Below ninety percent confidence, a person reviews before anything goes out. Below seventy, the system stops and asks for help instead of guessing. That is a harness admitting uncertainty instead of hiding it.",
+      body: "Below ninety percent confidence, a person reviews before anything goes out. Below seventy, the system stops and asks for help instead of guessing. Every Platinum donor is reviewed regardless of score. That is a harness admitting uncertainty instead of hiding it, at exactly the scale where a hidden mistake would otherwise reach a real donor.",
       target: function () { return document.getElementById("dagNodeGate"); },
       refHref: "https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0011-confidence-scoring-feedback-loop.md",
       refText: "ADR 0011: the confidence rubric",
     },
     {
-      label: "5 / 7, built small on purpose",
+      label: "8 / 16, the scripts",
+      title: "The actual scripts, not a description of them",
+      body: "Every stage above is a real, short Python file on GitHub, not a summary of one. validate_input.py, calculate_ask.py, generate_letters.py, and the shared policy module donor_rules.py that all three of them import from, one implementation of tier, date, and ask logic, used everywhere it matters.",
+      target: function () { return document.getElementById("scriptRefsPanel"); },
+    },
+    {
+      label: "9 / 16, the harness",
+      title: "Five layers, one job each",
+      body: "Schema validation twice, once on the raw row and once on the assembled letter. Deterministic arithmetic. A confidence rubric that escalates instead of hiding. Mandatory human gates on the highest-stakes records. One bounded exception where a model may touch phrasing, never a fact or a number. That is the whole harness: bounded probability where a guarantee is not possible, a guarantee everywhere it is.",
+      target: function () { return document.getElementById("harnessList"); },
+    },
+    {
+      label: "10 / 16, deliberate restraint",
       title: "What this system chose not to build",
-      body: "This system also chose what not to build. No orchestration framework, no vector database, no machine learning, because a three-stage pipeline for fifty donors does not need any of them yet. Each one has a written trigger, the specific condition that would justify adding it. Restraint is a decision here, not an oversight.",
+      body: "No orchestration framework, no vector database, no machine learning, because a three-stage pipeline for fifty donors does not need any of them yet. Each one has a written trigger, the specific condition that would justify adding it. Restraint is a decision here, documented, not an oversight.",
       target: function () { return document.getElementById("restraintList"); },
       refHref: "https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/scale-architecture.md",
       refText: "The full restraint table, with every deferred component",
     },
     {
-      label: "6 / 7, a real example",
-      title: "One real example",
-      body: "Shirley Magnusdottir was filed as Silver. Her actual giving computes to Gold. A well written prompt might catch this on a good day. This system catches it every single time, because the check is code, not a suggestion.",
-      target: function () { return findDonorRow("Shirley Magnusdottir"); },
-      onExit: clearDonorSearch,
+      label: "11 / 16, live: find the errors",
+      title: "What a caught error actually looks like",
+      body: "This is the table, filtered to exactly what needs correction right now: four donors, including Shirley Magnusdottir, filed Silver, computing to Gold from her own gift history. This is not a mockup. This is the real embedded dataset, filtered live, the same way you would filter it on your own file.",
+      target: function () { return document.getElementById("donorTable"); },
+      action: function () { document.getElementById("statusFilter").value = "crit"; },
     },
     {
-      label: "7 / 7, the whole difference",
+      label: "12 / 16, live: apply the fix",
+      title: "One click, watch it happen",
+      body: "This is the same button you would click on a real file. Watch Shirley Magnusdottir's stated tier flip from Silver to Gold, live, right now, not narrated after the fact. The suggested value comes from the same recomputed gift history the validator already checked; a person is still the one clicking approve.",
+      target: function () { return findDonorRow("Shirley Magnusdottir"); },
+      action: function () {
+        document.getElementById("statusFilter").value = "all";
+        applySuggestedCorrections();
+      },
+    },
+    {
+      label: "13 / 16, live: sign off",
+      title: "A person still has to look",
+      body: "Correcting the data does not skip review. Every Platinum donor, and anyone a warning still flags, needs a person to check them off before this batch can be considered handled. On a real file you would do this one row at a time as you actually review each one; this button exists for exactly the moment you have already decided they are all clear.",
+      target: function () { return document.getElementById("reviewProgressToolbar"); },
+      action: function () {
+        document.getElementById("statusFilter").value = "all";
+        applySuggestedCorrections();
+        setAllMandatoryReviewed(true);
+      },
+    },
+    {
+      label: "14 / 16, live: export the package",
+      title: "Everything Doug needs, in one file",
+      body: "The gate is open now. This button packages the cleaned data, every generated letter, a manifest, and a snapshot of this exact reviewed state into one dated ZIP. The tour will not click it for you, a file downloading itself without being asked is a bad habit for any tool to have, but it is live and ready right now if you want to see it yourself.",
+      target: function () { return document.getElementById("archiveToolbar"); },
+      action: function () {
+        document.getElementById("statusFilter").value = "all";
+        applySuggestedCorrections();
+        setAllMandatoryReviewed(true);
+      },
+    },
+    {
+      label: "15 / 16, bring your own data",
+      title: "How to run a different file through this",
+      body: "Everything above ran on the case study's own fifty donors. Upload a different file in the same shape here, and the exact same checks run against it: tiers and lapsed status recomputed, mismatches held for correction, nothing trusted on faith. Growing an existing list works the same way, merge a second file in without losing review state on any donor whose data did not actually change.",
+      target: function () { return document.getElementById("advancedTools"); },
+      action: function () {
+        document.getElementById("statusFilter").value = "all";
+        applySuggestedCorrections();
+        setAllMandatoryReviewed(true);
+        var details = document.getElementById("advancedTools");
+        if (details) details.open = true;
+      },
+    },
+    {
+      label: "16 / 16, the whole difference",
       title: "The whole difference, in one line",
-      body: "A well designed prompt improves probability. A well designed harness replaces probability with a guarantee, wherever a guarantee is possible, and asks a human wherever it is not. Same model. Completely different system.",
+      body: "A well designed prompt improves probability. A well designed harness replaces probability with a guarantee, wherever a guarantee is possible, and asks a human wherever it is not. Same model. Completely different system, at any scale you actually need to run it at.",
       target: function () { return document.getElementById("whyGrid"); },
     },
   ];
 
-  var totalWords = TOUR_STEPS.reduce(function (sum, step) { return sum + wordCount(step.body); }, 0);
-
   var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  var tourState = { active: false, index: 0, playing: false, timer: null, audio: null };
+  var tourState = { active: false, index: 0, playing: false, timer: null };
 
   var highlightEl = document.createElement("div");
   highlightEl.className = "tour-highlight";
@@ -2829,9 +2946,8 @@ __CAMPAIGN_CONFIG_JSON__
     });
   }
 
-  function stepDurationMs(step, totalDurationSec) {
-    var share = wordCount(step.body) / totalWords;
-    var seconds = totalDurationSec ? share * totalDurationSec : wordCount(step.body) / PACE_WORDS_PER_SEC;
+  function stepDurationMs(step) {
+    var seconds = wordCount(step.body) / PACE_WORDS_PER_SEC;
     return Math.max(seconds, 3) * 1000;
   }
 
@@ -2850,11 +2966,27 @@ __CAMPAIGN_CONFIG_JSON__
     if (tourState.timer) { clearTimeout(tourState.timer); tourState.timer = null; }
   }
 
-  function showStep(index) {
-    var previous = TOUR_STEPS[tourState.index];
-    if (previous && previous.onExit) previous.onExit();
+  // Resets to the canonical, uncorrected dataset, then replays every
+  // step's live action from the beginning up through the target index.
+  // This is what makes Back, Next, and clicking a dot directly all land
+  // on the same, correct cumulative state every time.
+  function replayActionsThrough(index) {
+    donors = buildDonorsFromRecords(RAW);
+    document.getElementById("search").value = "";
+    document.getElementById("statusFilter").value = "all";
+    var details = document.getElementById("advancedTools");
+    if (details) details.open = false;
+    for (var i = 0; i <= index; i++) {
+      if (TOUR_STEPS[i].action) TOUR_STEPS[i].action();
+    }
+    renderStats();
+    renderRows();
+  }
 
+  function showStep(index) {
     tourState.index = index;
+    replayActionsThrough(index);
+
     var step = TOUR_STEPS[index];
     var el = step.target();
 
@@ -2874,8 +3006,7 @@ __CAMPAIGN_CONFIG_JSON__
       highlightEl.classList.remove("active");
     }
 
-    var totalDuration = tourState.audio && tourState.audio.duration ? tourState.audio.duration : 0;
-    var duration = stepDurationMs(step, totalDuration);
+    var duration = stepDurationMs(step);
     runProgressBar(duration);
 
     clearTimer();
@@ -2895,42 +3026,19 @@ __CAMPAIGN_CONFIG_JSON__
     tourState.playing = playing;
     document.getElementById("tourPlayPause").textContent = playing ? "Pause" : "Play";
     if (playing) {
-      if (tourState.audio) { tourState.audio.play().catch(function () {}); }
       showStep(tourState.index);
     } else {
       clearTimer();
-      if (tourState.audio) tourState.audio.pause();
       document.getElementById("tourProgressBar").style.transition = "none";
     }
   }
 
   function startTour() {
-    // The tour narrates a specific claim about a specific donor (Shirley
-    // Magnusdottir: filed Silver, computes to Gold). If a visitor already
-    // clicked "Apply suggested corrections" or restored a saved dataset
-    // before starting the tour, her row would already show Gold/Gold,
-    // directly contradicting the narration the moment it spotlights her.
-    // Resetting to the canonical, uncorrected dataset here, the same reset
-    // resetBtn performs, guarantees the tour always demonstrates against
-    // the state its own script was written for, regardless of what a
-    // visitor did first.
-    donors = buildDonorsFromRecords(RAW);
-    renderStats();
-    renderRows();
-
     tourState.active = true;
     document.body.classList.add("tour-active");
     captionEl.classList.add("active");
-
-    var audioTag = document.getElementById("tourAudio");
-    if (audioTag && audioTag.currentSrc) {
-      tourState.audio = audioTag;
-      tourState.audio.currentTime = 0;
-    }
-
     tourState.playing = true;
     showStep(0);
-    if (tourState.audio) { tourState.audio.play().catch(function () {}); }
   }
 
   function endTour() {
@@ -2939,9 +3047,16 @@ __CAMPAIGN_CONFIG_JSON__
     document.body.classList.remove("tour-active");
     captionEl.classList.remove("active");
     highlightEl.classList.remove("active");
-    if (tourState.audio) { tourState.audio.pause(); tourState.audio.currentTime = 0; }
-    var lastStep = TOUR_STEPS[tourState.index];
-    if (lastStep && lastStep.onExit) lastStep.onExit();
+    // Ending the tour, at any step, always leaves the page in the same
+    // clean state a fresh visitor would see, never mid-demo (corrections
+    // half-applied, some but not all reviews checked, a stray filter).
+    donors = buildDonorsFromRecords(RAW);
+    document.getElementById("search").value = "";
+    document.getElementById("statusFilter").value = "all";
+    var details = document.getElementById("advancedTools");
+    if (details) details.open = false;
+    renderStats();
+    renderRows();
   }
 
   document.getElementById("startTourBtn").addEventListener("click", startTour);
