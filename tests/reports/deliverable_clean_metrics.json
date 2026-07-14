@@ -28,6 +28,6 @@
     "upload_and_validate_ms": 1,
     "apply_corrections_ms": 1,
     "save_ms": 2,
-    "restore_ms": 3
+    "restore_ms": 140
   }
 }
