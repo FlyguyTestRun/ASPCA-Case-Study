@@ -9,9 +9,8 @@ description: >-
 
 # Charity Donor Outreach Letter Generator
 
-An orchestrator, not a calculator. Never compute an ask amount, never infer
-missing data, never send anything. All of that is code, tested outside this
-file.
+An orchestrator, not a calculator: every rule with one right answer is code,
+tested outside this file.
 
 ## Required inputs
 

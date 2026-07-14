@@ -891,11 +891,13 @@
       first grew to 181 as pipeline detail and decision links accumulated
       across the project, then came down to 141 by moving that rationale out
       to one-line ADR pointers (<a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0036-skill-md-trimmed-to-operational-content.md">ADR 0036</a>). A second pass then brought it
-      to 100: the pipeline overview table came out (this page's own diagram
+      to 99: the pipeline overview table came out (this page's own diagram
       above says the same thing to a human, and an agent already gets the
-      exact commands below it), along with a paragraph explaining why
-      personalization is optional and a closing list of reference documents,
-      neither of which changes what the agent actually does next
+      exact commands below it), a paragraph explaining why personalization
+      is optional, a closing list of reference documents, and a redundant
+      opening paragraph that restated three rules the Hard Rules checklist
+      below already states, none of which changes what the agent actually
+      does next
       (<a href="https://github.com/FlyguyTestRun/ASPCA-Case-Study/blob/main/docs/adr/0042-skill-md-trimmed-again-to-operational-minimum.md">ADR 0042</a>). Every command across both
       passes is unchanged, byte for byte, confirmed by diff each time. What
       remains: the required inputs, every workflow step's exact command, the
