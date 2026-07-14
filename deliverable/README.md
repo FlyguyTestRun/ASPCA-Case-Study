@@ -31,13 +31,14 @@ by anyone regardless of their technical setup.
   specific reason (held pending correction, or routed to personal outreach)
   instead of a blank space.
 - Accepts an upload of the case study's own unedited donor file, or any file
-  in the same shape, and runs it through the same checks: "Apply suggested
-  corrections" approves every held mismatch at once, the way
-  `apply_corrections.py` does on the command line. "Save cleaned dataset"
-  keeps the corrected result in the browser (`localStorage`) so it survives
-  a reload; "Restore saved dataset" brings it back on a later visit.
+  in the same shape, as the current working set and runs it through the same
+  checks: "Apply suggested corrections" approves every held mismatch at once,
+  the way `apply_corrections.py` does on the command line. "Save cleaned
+  dataset" keeps the corrected result in the browser (`localStorage`) so it
+  survives a reload; "Restore saved dataset" brings it back on a later visit.
 - Exports a cleaned CSV in the exact shape `validate_input.py` reads, so it
-  can be handed straight back to the real pipeline, with no remapping,
+  can be handed straight back to the real pipeline or merged into the source
+  donor workflow, with no remapping,
   before `calculate_ask.py` and `generate_letters.py` run. Ask amounts and
   letter text are still computed nowhere but Python; see "Why a second
   implementation" below for why the browser stops at tier and date logic.

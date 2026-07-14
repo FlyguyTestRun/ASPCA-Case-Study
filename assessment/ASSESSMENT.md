@@ -44,7 +44,7 @@ Full mapping from each defect to its fix, its test, and its decision record: [`d
 
 Beyond the brief's two questions, the repo includes four pieces of implementation evidence. These are not required infrastructure for every deployment; they prove the architecture can support the consistent, reliable, scalable workflow the brief asks for:
 
-- **A review interface** (`app/review_app.py`) and standalone HTML deliverable so fundraising staff, not just engineers, can review the supplied data, upload another file in the same shape, apply approved corrections, inspect generated letters, and export a cleaned batch.
+- **A review interface** (`app/review_app.py`) and standalone HTML deliverable so fundraising staff, not just engineers, can review the supplied data, upload a replacement file in the same shape, apply approved corrections, inspect generated letters, and export a cleaned batch for the next pipeline run or source-system merge.
 - **A fix-and-resubmit loop**: the validator suggests the correct value wherever it is computable; a person approves, the file re-runs in one click.
 - **A style feedback loop**: reviewer edits can tune the system's voice only after repeated evidence and named approval; it can change how a letter sounds, never what it claims or asks.
 - **Architecture Decision Records and an operational decision log**: the design choices and persistent approvals are traceable without turning the case study into a heavier production platform than it needs to be today.

@@ -10,7 +10,7 @@ If you read only three things, read these in order:
 
 1. **[Assessment](assessment/ASSESSMENT.md):** the direct answer to the two case-study questions.
 2. **[Rewritten skill](skill/charity-donor-outreach/SKILL.md):** the concise operational version an agent would follow.
-3. **[Standalone HTML review artifact](deliverable/donor-data-review.html):** the interactive deliverable for reviewing the supplied data, applying corrections, and exporting a cleaned batch.
+3. **[Standalone HTML review artifact](deliverable/donor-data-review.html):** the interactive deliverable for reviewing the supplied data, applying corrections, uploading a replacement donor file in the same shape, and exporting a cleaned batch for merge back into the source donor workflow.
 
 The rest of the repository is implementation evidence: tests, generated output, decision records, and scale notes showing where production extensions would attach without changing the core design.
 
@@ -127,7 +127,7 @@ A completed run is committed in [output/](output/) as evidence: the [review mani
 
 **Live, no download:** https://flyguytestrun.github.io/ASPCA-Case-Study/deliverable/donor-data-review.html
 
-Or, [deliverable/donor-data-review.html](deliverable/donor-data-review.html) opens in any browser, no install, no server, no network. It is the reviewer-facing version of the case study: it shows the verified result, explains the pipeline, lets a reviewer inspect all 50 donors, apply suggested corrections, upload another file in the same shape, and export a cleaned batch for the next pipeline run. Expanding a donor row shows the generated letter and ask trace from the real pipeline output, not browser-synthesized content. Mandatory-review donors must be checked off before the page will download a dated archive containing the cleaned data, letters, and manifest. Details and rebuild instructions: [deliverable/README.md](deliverable/README.md); design records: [ADR 0021](docs/adr/0021-standalone-review-artifact.md), [ADR 0029](docs/adr/0029-browser-side-upload-clean-and-persist.md), [ADR 0030](docs/adr/0030-letter-preview-and-date-display.md), [ADR 0035](docs/adr/0035-html-review-gate-and-dated-archive.md).
+Or, [deliverable/donor-data-review.html](deliverable/donor-data-review.html) opens in any browser, no install, no server, no network. It is the reviewer-facing version of the case study: it shows the verified result, explains the pipeline, lets a reviewer inspect all 50 donors, apply suggested corrections, upload a replacement donor file in the same shape, and export a cleaned batch for the next pipeline run or source-system merge. Expanding a donor row shows the generated letter and ask trace from the real pipeline output, not browser-synthesized content. Mandatory-review donors must be checked off before the page will download a dated archive containing the cleaned data, letters, and manifest. Details and rebuild instructions: [deliverable/README.md](deliverable/README.md); design records: [ADR 0021](docs/adr/0021-standalone-review-artifact.md), [ADR 0029](docs/adr/0029-browser-side-upload-clean-and-persist.md), [ADR 0030](docs/adr/0030-letter-preview-and-date-display.md), [ADR 0035](docs/adr/0035-html-review-gate-and-dated-archive.md).
 
 ## Requirements checklist
 
@@ -147,7 +147,7 @@ Or, [deliverable/donor-data-review.html](deliverable/donor-data-review.html) ope
 | [Trap registry](docs/trap-registry.md) | Every planted defect: where it hides, how it is caught, the test that proves it |
 | [Scale architecture](docs/scale-architecture.md) | What gets built when volume demands it, and the trigger for each addition |
 | [Rewritten skill](skill/charity-donor-outreach/SKILL.md) | The lean instruction file: judgment only, no math, no guessing, nothing sent |
-| [Standalone review artifact](deliverable/donor-data-review.html) | Open in any browser: the interactive HTML deliverable for reviewing, correcting, uploading, and exporting donor data |
+| [Standalone review artifact](deliverable/donor-data-review.html) | Open in any browser: the interactive HTML deliverable for reviewing, correcting, uploading, and exporting cleaned donor data |
 | [Hours log](HOURS.md) | Time spent on this engagement, block by block |
 
 ## Design principles
